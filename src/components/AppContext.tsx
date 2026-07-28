@@ -12,33 +12,22 @@ interface AppContextType {
   setCurrentUser: (user: User) => void;
   users: User[];
   claims: Claim[];
-  setClaims: (claims: Claim[] | ((prev: Claim[]) => Claim[])) => void;
   statusHistory: StatusHistory[];
-  setStatusHistory: (history: StatusHistory[] | ((prev: StatusHistory[]) => StatusHistory[])) => void;
   /** Resolves once the server has applied the transition and state has reloaded. */
   updateClaimStatus: (claimId: string, newStatus: ClaimStatus, changedBy: string, comment?: string, updates?: Partial<Claim>) => Promise<void>;
   /** Re-pull the whole workspace from the server. */
   refresh: () => Promise<void>;
   lineItems: ExpenseLineItem[];
-  setLineItems: (items: ExpenseLineItem[] | ((prev: ExpenseLineItem[]) => ExpenseLineItem[])) => void;
   moms: MOM[];
-  setMoms: (moms: MOM[] | ((prev: MOM[]) => MOM[])) => void;
   emails: SystemEmail[];
   markEmailsRead: (ids: string[]) => void;
   fieldDefinitions: FieldDefinition[];
-  setFieldDefinitions: (defs: FieldDefinition[] | ((prev: FieldDefinition[]) => FieldDefinition[])) => void;
-  
   masterData: MasterData[];
-  setMasterData: (data: MasterData[] | ((prev: MasterData[]) => MasterData[])) => void;
   companies: Company[];
   reviewMeetings: ReviewMeeting[];
-  setReviewMeetings: (meetings: ReviewMeeting[] | ((prev: ReviewMeeting[]) => ReviewMeeting[])) => void;
   supportRequests: SupportRequest[];
-  setSupportRequests: (requests: SupportRequest[] | ((prev: SupportRequest[]) => SupportRequest[])) => void;
   importBatches: ImportBatch[];
-  setImportBatches: (batches: ImportBatch[] | ((prev: ImportBatch[]) => ImportBatch[])) => void;
   delegations: ApproverDelegation[];
-  setDelegations: (dels: ApproverDelegation[] | ((prev: ApproverDelegation[]) => ApproverDelegation[])) => void;
   resetData: () => void;
 }
 
@@ -207,16 +196,16 @@ export function AppProvider({ children }: { children: ReactNode }) {
   return (
     <AppContext.Provider value={{
       currentUser, setCurrentUser, users, refresh,
-      claims, setClaims, statusHistory, setStatusHistory, updateClaimStatus,
-      lineItems, setLineItems, moms, setMoms,
+      claims, statusHistory, updateClaimStatus,
+      lineItems, moms,
       emails, markEmailsRead: markEmailsReadLocal,
-      fieldDefinitions, setFieldDefinitions,
-      masterData, setMasterData,
+      fieldDefinitions,
+      masterData,
       companies,
-      reviewMeetings, setReviewMeetings,
-      supportRequests, setSupportRequests,
-      importBatches, setImportBatches,
-      delegations, setDelegations,
+      reviewMeetings,
+      supportRequests,
+      importBatches,
+      delegations,
       resetData
     }}>
       {children}

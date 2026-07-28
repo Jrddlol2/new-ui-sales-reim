@@ -1,11 +1,10 @@
-import { useState, useRef } from 'react';
+import { useState } from 'react';
 import { Portal } from '../../components/shared/Portal';
 
 import { Card, CardContent } from '../../components/ui/Card';
 import { Button } from '../../components/ui/Button';
 import { Input, Select } from '../../components/ui/Input';
 import { useAppContext } from '../../components/AppContext';
-import { useToast } from '../../components/shared/ToastContext';
 
 interface ReceiptRecord {
   id: string;
@@ -20,21 +19,11 @@ interface ReceiptRecord {
 }
 
 export function Receipts() {
-  const { lineItems, claims, setLineItems } = useAppContext();
-  const { addToast } = useToast();
-  
+  const { lineItems, claims } = useAppContext();
+
   const [searchTerm, setSearchTerm] = useState('');
   const [selectedCategory, setSelectedCategory] = useState('');
   const [selectedReceipt, setSelectedReceipt] = useState<ReceiptRecord | null>(null);
-  const [showUploadModal, setShowUploadModal] = useState(false);
-
-  // New receipt upload form state
-  const [uploadFile, setUploadFile] = useState<File | null>(null);
-  const [uploadVendor, setUploadVendor] = useState('');
-  const [uploadCategory, setUploadCategory] = useState('Meals');
-  const [uploadAmount, setUploadAmount] = useState('');
-  const [uploadClaimId, setUploadClaimId] = useState('');
-  const fileInputRef = useRef<HTMLInputElement>(null);
 
   // Derive real receipts from line items in context
   const derivedReceipts: ReceiptRecord[] = lineItems
@@ -63,44 +52,13 @@ export function Receipts() {
     return matchesSearch && matchesCategory;
   });
 
-  const handleStandaloneUpload = () => {
-    if (!uploadFile) {
-      addToast('Please select a receipt file to upload', 'error');
-      return;
-    }
-
-    const objectUrl = URL.createObjectURL(uploadFile);
-    const newItem = {
-      id: `li-standalone-${Date.now()}`,
-      claimId: uploadClaimId || (claims[0]?.id || 'c1'),
-      expenseDate: new Date().toISOString().split('T')[0],
-      vendor: uploadVendor || 'Independent Receipt',
-      category: uploadCategory,
-      amount: Number(uploadAmount) || 0,
-      paymentMethod: 'Personal Card',
-      businessPurpose: 'Uploaded to archive',
-      receiptUrl: objectUrl,
-      receiptFileName: uploadFile.name
-    };
-
-    setLineItems(prev => [newItem, ...prev]);
-    addToast('Receipt uploaded to archive successfully!', 'success');
-    setShowUploadModal(false);
-    setUploadFile(null);
-    setUploadVendor('');
-    setUploadAmount('');
-  };
-
   return (
     <div className="space-y-8 animate-in fade-in duration-500">
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
         <div>
           <h1 className="font-display text-display text-on-surface">Receipt Archive</h1>
-          <p className="text-body-md text-outline mt-1">Searchable library of verified receipt documents & official receipts.</p>
+          <p className="text-body-md text-outline mt-1">Searchable library of verified receipt documents & official receipts, attached during claim submission.</p>
         </div>
-        <Button className="gap-2" onClick={() => setShowUploadModal(true)}>
-          <span className="material-symbols-outlined">upload</span> Upload Receipt
-        </Button>
       </div>
 
       {/* Filter Bar */}
@@ -207,67 +165,6 @@ export function Receipts() {
                 </a>
                 <Button size="sm" onClick={() => setSelectedReceipt(null)}>Close</Button>
               </div>
-            </div>
-          </div>
-        </div>
-        </Portal>
-      )}
-      {/* Upload Modal */}
-      {showUploadModal && (
-        <Portal>
-        <div className="fixed inset-0 bg-black/50 backdrop-blur-sm z-50 flex items-center justify-center p-4 animate-in fade-in">
-          <div className="bg-surface-container-lowest rounded-xl max-w-lg w-full p-6 shadow-2xl space-y-4">
-            <div className="flex justify-between items-center border-b border-outline-variant pb-3">
-              <h3 className="font-headline-sm text-on-surface">Upload Stray Receipt</h3>
-              <button onClick={() => setShowUploadModal(false)} className="text-outline hover:text-on-surface">
-                <span className="material-symbols-outlined">close</span>
-              </button>
-            </div>
-            <div className="space-y-4">
-              <div>
-                <label className="font-label-sm block mb-1">Select Receipt File</label>
-                <input 
-                  type="file" 
-                  accept="image/*,.pdf" 
-                  ref={fileInputRef} 
-                  onChange={e => setUploadFile(e.target.files?.[0] || null)}
-                  className="w-full text-sm text-outline file:mr-4 file:py-2 file:px-4 file:rounded-md file:border-0 file:text-sm file:font-semibold file:bg-primary-container file:text-on-primary-container hover:file:opacity-90" 
-                />
-              </div>
-              <div>
-                <label className="font-label-sm block mb-1">Vendor / Merchant</label>
-                <Input type="text" value={uploadVendor} onChange={e => setUploadVendor(e.target.value)} placeholder="e.g. Starbucks, Shell, Uber" />
-              </div>
-              <div className="grid grid-cols-2 gap-4">
-                <div>
-                  <label className="font-label-sm block mb-1">Category</label>
-                  <Select value={uploadCategory} onChange={e => setUploadCategory(e.target.value)}>
-                    <option value="Meals">Meals</option>
-                    <option value="Travel">Travel</option>
-                    <option value="Supplies">Supplies</option>
-                    <option value="Lodging">Lodging</option>
-                    <option value="Transportation">Transportation</option>
-                    <option value="Utilities">Utilities</option>
-                  </Select>
-                </div>
-                <div>
-                  <label className="font-label-sm block mb-1">Amount ($)</label>
-                  <Input type="number" value={uploadAmount} onChange={e => setUploadAmount(e.target.value)} placeholder="0.00" />
-                </div>
-              </div>
-              <div>
-                <label className="font-label-sm block mb-1">Link to Claim (Optional)</label>
-                <Select value={uploadClaimId} onChange={e => setUploadClaimId(e.target.value)}>
-                  <option value="">Unlinked Standalone Receipt</option>
-                  {claims.map(c => (
-                    <option key={c.id} value={c.id}>{c.ref} - ${c.total.toFixed(2)} ({c.type})</option>
-                  ))}
-                </Select>
-              </div>
-            </div>
-            <div className="flex justify-end gap-3 pt-4 border-t border-outline-variant">
-              <Button variant="outline" onClick={() => setShowUploadModal(false)}>Cancel</Button>
-              <Button onClick={handleStandaloneUpload}>Upload & Save</Button>
             </div>
           </div>
         </div>

@@ -53,6 +53,7 @@ export function ApprovalQueue() {
   let displayedClaims = pendingClaims;
   if (filter === 'Advances') displayedClaims = pendingClaims.filter(c => c.type === 'Cash Advance');
   if (filter === 'HighPriority') displayedClaims = pendingClaims.filter(c => c.flaggedHighValue || c.total > 15000);
+  if (filter === 'Stale') displayedClaims = pendingClaims.filter(c => c.approverStaleSince);
 
   const staleClaims = pendingClaims.filter(c => c.approverStaleSince);
 
@@ -122,10 +123,7 @@ export function ApprovalQueue() {
               <h4 className="font-headline-sm text-on-surface mb-1">Stale Approvals Detected</h4>
               <p className="text-on-surface-variant text-sm mb-2">You have {staleClaims.length} claims that are routed to you, but the requestor's manager has recently changed. Please review or transfer them.</p>
               <div className="flex gap-2">
-                <Button size="sm" variant="outline" className="border-tertiary text-tertiary" onClick={() => {
-                  addToast('Filtered to stale claims', 'success');
-                  setFilter('All'); // Mock action
-                }}>Review Stale Claims</Button>
+                <Button size="sm" variant="outline" className="border-tertiary text-tertiary" onClick={() => setFilter('Stale')}>Review Stale Claims</Button>
               </div>
             </div>
           </CardContent>
@@ -136,14 +134,14 @@ export function ApprovalQueue() {
         <button onClick={() => setFilter('All')} className={`px-5 py-2 rounded-full font-label-md transition-colors shadow-sm ${filter === 'All' ? 'bg-primary text-white' : 'bg-surface-container-high text-on-surface-variant hover:bg-outline-variant'}`}>All Pending ({pendingClaims.length})</button>
         <button onClick={() => setFilter('HighPriority')} className={`px-5 py-2 rounded-full font-label-md transition-colors shadow-sm ${filter === 'HighPriority' ? 'bg-primary text-white' : 'bg-surface-container-high text-on-surface-variant hover:bg-outline-variant'}`}>High Priority</button>
         <button onClick={() => setFilter('Advances')} className={`px-5 py-2 rounded-full font-label-md transition-colors shadow-sm ${filter === 'Advances' ? 'bg-primary text-white' : 'bg-surface-container-high text-on-surface-variant hover:bg-outline-variant'}`}>Cash Advances</button>
+        {staleClaims.length > 0 && (
+          <button onClick={() => setFilter('Stale')} className={`px-5 py-2 rounded-full font-label-md transition-colors shadow-sm ${filter === 'Stale' ? 'bg-primary text-white' : 'bg-surface-container-high text-on-surface-variant hover:bg-outline-variant'}`}>Stale ({staleClaims.length})</button>
+        )}
       </div>
 
       <Card>
         <CardHeader className="bg-surface-container-low/50 border-b border-outline-variant">
           <h4 className="font-headline-md text-on-surface">Pending Your Action</h4>
-          <div className="flex items-center gap-2">
-            <button aria-label="Filter" className="p-1.5 hover:bg-outline-variant rounded-lg transition-colors focus:ring-2 focus:ring-primary focus-visible:outline-none" onClick={() => addToast('Filter options opened', 'success')}><span className="material-symbols-outlined text-outline">filter_list</span></button>
-          </div>
         </CardHeader>
         <div className="overflow-x-auto">
           <table className="w-full text-left">

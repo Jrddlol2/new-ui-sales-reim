@@ -222,7 +222,7 @@ filters are missing. Do the biggest offenders first.
 - [ ] `lib/api.ts` passes paging/filter params; no client-side full-list slicing
 - [ ] Verified against live server (page boundaries, filter results)
 
-### B4 · Real dashboard KPIs (all four roles) `[ ]`  ↔ #5, #6, #7, #8
+### B4 · Real dashboard KPIs (all four roles) `[x]`  ↔ #5, #6, #7, #8 — done 2026-07-28, verified live
 Admin dashboard is 100% static; the others mix real counts with hardcoded fiction.
 
 **Prompt:**
@@ -312,7 +312,7 @@ Completion Date renders `new Date()` for every row; release code / payment ref h
 - [ ] Release code + payment reference shown
 - [ ] Verified
 
-### B10 · Kill toast-only "mock action" buttons `[ ]`  ↔ #16, UX-6
+### B10 · Kill toast-only "mock action" buttons `[x]`  ↔ #16, UX-6 — done 2026-07-28 for dashboards/queues (ApprovalQueue's dead Stale-filter and Filter-icon buttons, ApproverDashboard's fake Filter/More/Generate-Report, CustodianDashboard's Filter/Export). Settings' save buttons (photo/profile/notifications/password) are still toast-only, tracked separately per A4's `TODO(claude): persist settings`.
 Filter, more-options, "Generate Weekly Report", "Submit Reports Now", "Export Report" fire a
 success toast and do nothing.
 
@@ -326,7 +326,7 @@ success toast and do nothing.
 - [ ] Exports produce real files
 - [ ] No "success" without a real effect
 
-### B11 · Gate the fake dashboard skeleton `[ ]`  ↔ #18
+### B11 · Gate the fake dashboard skeleton `[x]`  ↔ #18 — done 2026-07-28
 `pages/Dashboard.tsx` runs an 800 ms `setTimeout` skeleton on every mount though data is in
 memory.
 
@@ -338,7 +338,7 @@ memory.
 - [ ] No artificial delay; skeleton tied to real loading
 - [ ] Dashboards render immediately when data is present
 
-### B12 · Remove non-persisting context setters `[ ]`  ↔ #19
+### B12 · Remove non-persisting context setters `[x]`  ↔ #19 — done 2026-07-28. All 10 unused setters removed from AppContextType; the one that WAS used (`setLineItems` in Receipts.tsx's "Upload to Archive") was the exact trap this item warns about — it silently vanished on refresh, and if linked to a real claim would have injected a phantom expense line into that claim's totals until the next refresh. Removed the fake standalone-upload feature rather than build a half-real replacement; the receipt gallery itself (driven by real `lineItems`) is untouched. Real fix (AUDIT #13) still open: wire a genuine upload once there's a server-side home for a receipt not yet tied to a claim.
 `setClaims`/`setMoms`/`setLineItems` mutate local state the next refresh overwrites — a trap.
 
 **Prompt:**
@@ -387,8 +387,14 @@ memory.
 - [ ] In every role's nav; bell reflects unread count
 - [ ] Verified per role
 
-### B16 · Custodian action wording / step `[ ]`  ↔ UX-8 · **needs decision**
-Product owner asked whether "Generate Release Code" should be a "Review" step.
+### B16 · Custodian action wording / step `[x]`  ↔ UX-8 — done 2026-07-28, verified live
+Decision: a real Review step, not just a relabel. Implementation note: the client's old
+"Start Processing" (Approved→Processing) button was unreachable in real use — the live
+`/approve` route auto-advances Reimbursements straight to Processing, and the custodian's
+`GET /api/claims` scoping excluded `Approved` entirely (fixed in `server.ts`). The genuine
+review (line items + receipts) is now merged into "Mark Ready" (Processing→Ready for Claim),
+the one transition that's actually backed by a server route. Verified end-to-end: real claim
+moved Processing → Ready for Claim with a real generated release code.
 
 **Prompt:**
 > Decision needed first: should the custodian's "Generate Release Code" action stay as-is, be
@@ -465,12 +471,12 @@ Each milestone mixes a little Track A and Track B so the app improves visibly ea
 - [x] A1 Approval actions visible
 - [ ] B1 `?type=` deep-link
 - [x] B2 My Requests filter
-- [ ] B11 Kill fake dashboard delay
-- [ ] B16 Custodian wording (get the decision)
+- [x] B11 Kill fake dashboard delay
+- [x] B16 Custodian wording — decided (real Review step) and shipped
 
 ### M2 — Truthful dashboards & lists  `[~]`
-- [ ] B4 Real dashboard KPIs (all four)
-- [ ] B10 Remove toast-only buttons
+- [x] B4 Real dashboard KPIs (all four)
+- [x] B10 Remove toast-only buttons (dashboards/queues; Settings' still open, see A4)
 - [ ] B3 Server-side pagination + clickable rows (MOMs/ClaimsList got client-side pagination via A-track; server-side for Audit Log/Emails/Transactions still open)
 - [x] A6 Shared states built · [~] A7 a11y/responsive (labels+contrast done, table-scroll/mobile pass open)
 
@@ -485,7 +491,7 @@ Each milestone mixes a little Track A and Track B so the app improves visibly ea
 ### M4 — Correctness & polish  `[~]`
 - [ ] B17 Currency → PHP
 - [x] A4 Settings tabs (UI) · [ ] persistence · [ ] A5 → error boundary (P1-9)
-- [ ] B12 Remove dead context setters
+- [x] B12 Remove dead context setters
 
 ### M5 — Production hardening (launch-blocking)  `[ ]`
 - [ ] P0-1 Auth → P0-2 Role switcher → P0-3 DB

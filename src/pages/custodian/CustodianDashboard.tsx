@@ -1,17 +1,38 @@
+import { useMemo } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Card, CardHeader } from '../../components/ui/Card';
 import { Button } from '../../components/ui/Button';
 import { StatusBadge } from '../../components/ui/StatusBadge';
 import { KPICard } from '../../components/ui/KPICard';
 import { useAppContext } from '../../components/AppContext';
-import { useToast } from '../../components/shared/ToastContext';
+import { ClaimStatus } from '../../types';
 
 export function CustodianDashboard() {
   const navigate = useNavigate();
-  const { addToast } = useToast();
-  const { claims, users } = useAppContext();
-  
-  const processingClaims = claims.filter(c => c.status === 'Processing' || c.status === 'Ready for Claim');
+  const { claims, users, lineItems } = useAppContext();
+
+  const processingClaims = claims.filter(c => c.status === ClaimStatus.PROCESSING || c.status === ClaimStatus.READY_FOR_CLAIM);
+  const readyForPickup = claims.filter(c => c.status === ClaimStatus.READY_FOR_CLAIM).length;
+
+  const missingReceiptsCount = useMemo(() => {
+    const processingClaimIds = new Set(processingClaims.map(c => c.id));
+    return lineItems.filter(li => processingClaimIds.has(li.claimId) && !li.receiptUrl).length;
+  }, [processingClaims, lineItems]);
+
+  const oldestItemDays = useMemo(() => {
+    if (processingClaims.length === 0) return null;
+    const oldest = processingClaims.reduce((min, c) => {
+      const created = new Date(c.createdAt).getTime();
+      return created < min ? created : min;
+    }, Date.now());
+    return (Date.now() - oldest) / (1000 * 60 * 60 * 24);
+  }, [processingClaims]);
+
+  const byType = useMemo(() => {
+    const counts: Record<string, number> = { Reimbursement: 0, 'Cash Advance': 0, Liquidation: 0 };
+    processingClaims.forEach(c => { counts[c.type] = (counts[c.type] || 0) + 1; });
+    return counts;
+  }, [processingClaims]);
 
   return (
     <div className="space-y-8 animate-in fade-in duration-500">
@@ -21,44 +42,50 @@ export function CustodianDashboard() {
           <h1 className="font-display text-display text-on-surface mt-1">Pending Disbursements</h1>
         </div>
         <div className="flex gap-3">
-          <Button variant="outline" className="gap-2 focus:ring-2 focus:ring-primary outline-none" onClick={() => addToast('Displaying active filters', 'success')}><span className="material-symbols-outlined">filter_list</span> Filter</Button>
           <Button className="gap-2 focus:ring-2 focus:ring-primary outline-none" onClick={() => {
-            const csv = 'Report Data\n...';
+            const rows = [
+              ['Ref', 'Requestor', 'Type', 'Amount', 'Status'],
+              ...processingClaims.map(c => {
+                const req = users.find(u => u.id === c.requestorId);
+                return [c.ref, req?.name || '', c.type, c.total.toFixed(2), c.status];
+              }),
+            ];
+            const csv = rows.map(r => r.map(cell => `"${String(cell).replace(/"/g, '""')}"`).join(',')).join('\n');
             const blob = new Blob([csv], { type: 'text/csv' });
             const url = URL.createObjectURL(blob);
             const a = document.createElement('a');
             a.href = url;
-            a.download = 'custodian_report.csv';
+            a.download = `custodian-queue-${new Date().toISOString().slice(0, 10)}.csv`;
             a.click();
-            addToast('Report exported successfully', 'success');
-          }}><span className="material-symbols-outlined">download</span> Export Report</Button>
+            URL.revokeObjectURL(url);
+          }}><span className="material-symbols-outlined">download</span> Export Queue</Button>
         </div>
       </div>
 
       <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-        <KPICard 
-          title="Missing Receipts" 
-          value="42" 
-          icon="receipt_long" 
-          iconColorClass="bg-error-container text-on-error-container"
-          trend="+12% vs last week"
-          trendColorClass="text-error bg-error-container px-2 py-1 rounded-full"
+        <KPICard
+          title="Missing Receipts"
+          value={missingReceiptsCount.toString()}
+          icon="receipt_long"
+          iconColorClass={missingReceiptsCount > 0 ? 'bg-error-container text-on-error-container' : 'bg-primary-fixed text-on-primary-fixed-variant'}
+          trend={missingReceiptsCount > 0 ? 'Needs follow-up' : 'All receipts on file'}
+          trendColorClass={missingReceiptsCount > 0 ? 'text-error bg-error-container px-2 py-1 rounded-full' : 'text-primary bg-primary-fixed px-2 py-1 rounded-full'}
         />
-        <KPICard 
-          title="Total Pending" 
-          value={processingClaims.length.toString()} 
-          icon="pending_actions" 
+        <KPICard
+          title="Total Pending"
+          value={processingClaims.length.toString()}
+          icon="pending_actions"
           iconColorClass="bg-primary-fixed text-on-primary-fixed-variant"
           trend="Active Queue"
           trendColorClass="text-primary bg-primary-fixed px-2 py-1 rounded-full"
         />
-        <KPICard 
-          title="Oldest Item in Queue" 
-          value="4.2" 
+        <KPICard
+          title="Oldest Item in Queue"
+          value={oldestItemDays === null ? '—' : `${oldestItemDays.toFixed(1)} days`}
           prefix=""
-          icon="schedule" 
+          icon="schedule"
           iconColorClass="bg-tertiary-fixed text-on-tertiary-fixed-variant"
-          trend="Urgent"
+          trend={oldestItemDays !== null && oldestItemDays > 3 ? 'Urgent' : oldestItemDays === null ? 'Queue empty' : 'On track'}
           trendColorClass="text-tertiary bg-tertiary-fixed px-2 py-1 rounded-full"
         />
       </div>
@@ -120,8 +147,8 @@ export function CustodianDashboard() {
                     </td>
                     <td className="px-6 py-5 text-right">
                       <Button size="sm" className="gap-2 ml-auto" onClick={() => navigate('/disbursements')}>
-                        <span className="material-symbols-outlined text-[16px]">vpn_key</span>
-                        Generate Release Code
+                        <span className="material-symbols-outlined text-[16px]">fact_check</span>
+                        Review
                       </Button>
                     </td>
                   </tr>
@@ -134,30 +161,40 @@ export function CustodianDashboard() {
       
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
         <Card className="p-6">
-          <h4 className="font-label-md text-on-surface mb-4">Queue Velocity (24h)</h4>
-          <div className="h-32 flex items-end justify-between gap-1">
-            {[40, 60, 90, 30, 55, 85, 45].map((h, i) => (
-              <div key={i} className="w-full bg-primary-fixed-dim/20 rounded-t-sm relative group hover:bg-primary transition-all cursor-help" style={{ height: `${h}%` }}>
-                <div className="absolute inset-x-0 bottom-0 bg-primary rounded-t-sm opacity-60" style={{ height: `${Math.max(30, h - 20)}%` }}></div>
+          <h4 className="font-label-md text-on-surface mb-4">Queue by Type</h4>
+          <div className="space-y-4">
+            {(Object.entries(byType) as [string, number][]).map(([type, count]) => (
+              <div key={type}>
+                <div className="flex justify-between mb-1">
+                  <span className="font-label-sm text-on-surface-variant">{type}</span>
+                  <span className="font-label-sm text-primary">{count}</span>
+                </div>
+                <div className="h-1.5 w-full bg-surface-container-high rounded-full">
+                  <div
+                    className="h-full bg-primary rounded-full transition-all"
+                    style={{ width: processingClaims.length > 0 ? `${(count / processingClaims.length) * 100}%` : '0%' }}
+                  ></div>
+                </div>
               </div>
             ))}
           </div>
-          <div className="flex justify-between mt-3 text-[10px] text-outline uppercase font-bold tracking-wider">
-            <span>08:00</span><span>12:00</span><span>16:00</span><span>20:00</span><span>00:00</span>
-          </div>
         </Card>
-        
+
         <Card className="bg-primary-container text-on-primary-container p-6 relative flex flex-col justify-center overflow-hidden">
           <div className="z-10">
-            <h4 className="font-headline-md mb-2">Automated Audit Mode</h4>
-            <p className="text-body-base opacity-80 mb-6">FinFlow AI is currently verifying 24 receipts in the background. System efficiency is at 98.4%.</p>
-            <Button variant="secondary" className="gap-2 text-primary font-bold" onClick={() => navigate('/transactions')}>
-              <span className="material-symbols-outlined">auto_awesome</span> View Audit Logs
+            <h4 className="font-headline-md mb-2">Ready for Pickup</h4>
+            <p className="text-body-base opacity-80 mb-6">
+              {readyForPickup === 0
+                ? 'No claims are currently awaiting requestor confirmation.'
+                : `${readyForPickup} claim${readyForPickup === 1 ? '' : 's'} ${readyForPickup === 1 ? 'has' : 'have'} a release code out and ${readyForPickup === 1 ? 'is' : 'are'} awaiting requestor confirmation.`}
+            </p>
+            <Button variant="secondary" className="gap-2 text-primary font-bold" onClick={() => navigate('/ready-to-claim')}>
+              <span className="material-symbols-outlined">key</span> View Ready to Claim
             </Button>
           </div>
           <div className="absolute top-0 right-0 -mr-12 -mt-12 w-64 h-64 bg-white/10 rounded-full blur-3xl"></div>
           <div className="absolute bottom-0 right-0 p-4 opacity-20">
-            <span className="material-symbols-outlined text-[120px]">security</span>
+            <span className="material-symbols-outlined text-[120px]">inventory_2</span>
           </div>
         </Card>
       </div>

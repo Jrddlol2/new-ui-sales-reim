@@ -1349,7 +1349,11 @@ ${user.name}`;
     } else if (user.role === UserRole.APPROVER) {
       filtered = claims.filter(c => c.current_approver_id === user.id || c.original_approver_id === user.id || c.requestor_id === user.id || isActiveDelegateFor(user.id, c.current_approver_id));
     } else if (user.role === UserRole.CUSTODIAN) {
-      filtered = claims.filter(c => [ClaimStatus.PROCESSING, ClaimStatus.READY_FOR_CLAIM, ClaimStatus.COMPLETED].includes(c.status) || c.requestor_id === user.id);
+      // APPROVED is included so the custodian can see (and review) a claim the
+      // moment an approver clears it — otherwise it's invisible to them until
+      // it reaches PROCESSING, and the review-before-processing step in
+      // ProcessingQueue.tsx would never be reachable in practice.
+      filtered = claims.filter(c => [ClaimStatus.APPROVED, ClaimStatus.PROCESSING, ClaimStatus.READY_FOR_CLAIM, ClaimStatus.COMPLETED].includes(c.status) || c.requestor_id === user.id);
     } else if (user.role === UserRole.ADMIN) {
       filtered = claims; // Admin sees all
     }
@@ -1388,7 +1392,7 @@ ${user.name}`;
     } else if (user.role === UserRole.APPROVER) {
       hasAccess = claim.current_approver_id === user.id || claim.original_approver_id === user.id || claim.requestor_id === user.id || isActiveDelegateFor(user.id, claim.current_approver_id);
     } else if (user.role === UserRole.CUSTODIAN) {
-      hasAccess = [ClaimStatus.PROCESSING, ClaimStatus.READY_FOR_CLAIM, ClaimStatus.COMPLETED].includes(claim.status) || claim.requestor_id === user.id;
+      hasAccess = [ClaimStatus.APPROVED, ClaimStatus.PROCESSING, ClaimStatus.READY_FOR_CLAIM, ClaimStatus.COMPLETED].includes(claim.status) || claim.requestor_id === user.id;
     }
     if (!hasAccess) return res.status(403).json({ error: 'Forbidden' });
 
