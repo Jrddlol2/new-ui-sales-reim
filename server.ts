@@ -2,7 +2,8 @@
 import path from 'path';
 import fs from 'fs';
 import multer from 'multer';
-import { createServer as createViteServer } from 'vite';
+// NOTE: `vite` is imported dynamically inside the dev-only branch of createApp()
+// so it never loads in a production/serverless bundle (Vercel), where it isn't used.
 import { v4 as uuidv4 } from 'uuid';
 import {
   User, UserRole, Mom, MomStatus, MinutesSource, Claim, ClaimStatus,
@@ -367,9 +368,8 @@ const upload = multer({
   }
 });
 
-async function startServer() {
+export async function createApp() {
   const app = express();
-  const PORT = process.env.PORT ? Number(process.env.PORT) : 3000;
 
   app.use(express.json());
 
@@ -4833,35 +4833,49 @@ You'll receive another email as soon as a decision is made.`
     res.status(201).json(newBatch);
   });
 
-  // Vite middleware for development
+  // Frontend: Vite dev middleware locally; static build in production.
   if (process.env.NODE_ENV !== "production") {
+    const { createServer: createViteServer } = await import('vite');
     const vite = await createViteServer({
       server: { middlewareMode: true },
       appType: "spa",
     });
     app.use(vite.middlewares);
   } else {
+    // On Vercel, static assets are served by the platform (see vercel.json);
+    // this branch still lets `npm start` serve the built SPA standalone.
     const distPath = path.join(process.cwd(), 'dist');
-    app.use(express.static(distPath));
-    app.get('*', (req, res) => {
-      res.sendFile(path.join(distPath, 'index.html'));
-    });
+    if (fs.existsSync(distPath)) {
+      app.use(express.static(distPath));
+      app.get('*', (req, res) => {
+        res.sendFile(path.join(distPath, 'index.html'));
+      });
+    }
   }
 
-  // Auto-seed on startup if not in production and not disabled
-  if (process.env.NODE_ENV !== 'production' && process.env.AUTO_SEED !== 'false') {
+  // Auto-seed on startup unless explicitly disabled. This runs in production
+  // too, so a fresh serverless cold start has demo data to serve. NOTE: the
+  // backend is in-memory — state does not persist across cold starts. That is
+  // a deliberate prototype limitation; see PRODUCTION-PASS.md #3 (persistent DB).
+  if (process.env.AUTO_SEED !== 'false') {
     try {
-      console.log('Detected development/demo environment. Auto-seeding 1 year of historical mock data...');
       seedYearOfData();
-      console.log('Successfully auto-seeded 1 year of mock data on startup.');
+      console.log('Auto-seeded 1 year of mock data on startup.');
     } catch (err: any) {
       console.error('Failed to auto-seed mock data on startup:', err);
     }
   }
 
-  app.listen(PORT, "0.0.0.0", () => {
-    console.log(`Server running on http://localhost:${PORT}`);
-  });
+  return app;
 }
 
-startServer();
+// Local dev / standalone prod: listen on a port. Skipped on Vercel, where the
+// serverless entry (api/index.ts) imports createApp() and drives it instead.
+if (!process.env.VERCEL) {
+  createApp().then((app) => {
+    const PORT = process.env.PORT ? Number(process.env.PORT) : 3000;
+    app.listen(PORT, "0.0.0.0", () => {
+      console.log(`Server running on http://localhost:${PORT}`);
+    });
+  });
+}
