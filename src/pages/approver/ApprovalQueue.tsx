@@ -4,6 +4,7 @@ import { Card, CardHeader, CardContent } from '../../components/ui/Card';
 import { Button } from '../../components/ui/Button';
 import { StatusBadge } from '../../components/ui/StatusBadge';
 import { ClaimStatus } from '../../types';
+import { formatMoney } from '../../lib/money';
 import { ApproverActionButtons } from '../../components/shared/ApproverActionButtons';
 import { useAppContext } from '../../components/AppContext';
 
@@ -148,7 +149,7 @@ export function ApprovalQueue() {
                           {aging.text}
                        </span>
                     </td>
-                    <td className="px-6 py-4 font-mono-data text-on-surface font-bold">${claim.total.toFixed(2)}</td>
+                    <td className="px-6 py-4 font-mono-data text-on-surface font-bold">{formatMoney(claim.total)}</td>
                     <td className="px-6 py-4 text-center">
                       <StatusBadge status={claim.status} />
                     </td>

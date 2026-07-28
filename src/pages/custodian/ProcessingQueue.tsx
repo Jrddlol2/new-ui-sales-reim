@@ -3,6 +3,7 @@ import { useNavigate } from 'react-router-dom';
 import { Card, CardHeader } from '../../components/ui/Card';
 import { StatusBadge } from '../../components/ui/StatusBadge';
 import { ClaimStatus } from '../../types';
+import { formatMoney } from '../../lib/money';
 import { CustodianActionButtons } from '../../components/shared/CustodianActionButtons';
 import { useAppContext } from '../../components/AppContext';
 
@@ -98,7 +99,7 @@ export function ProcessingQueue() {
                       </div>
                     </td>
                     <td className="px-6 py-4 font-mono-data text-on-surface font-bold">
-                       ${claim.type === 'Liquidation' ? Math.abs(claim.varianceAmount || 0).toFixed(2) : claim.total.toFixed(2)}
+                       {formatMoney(claim.type === 'Liquidation' ? Math.abs(claim.varianceAmount || 0) : claim.total)}
                        {claim.type === 'Liquidation' && <span className="block text-xs font-normal text-on-surface-variant">{claim.varianceType}</span>}
                     </td>
                     <td className="px-6 py-4 text-center">

@@ -5,6 +5,7 @@ import { Pagination } from '../../components/ui/Pagination';
 import { StatusBadge } from '../../components/ui/StatusBadge';
 import { useAppContext } from '../../components/AppContext';
 import { ClaimStatus } from '../../types';
+import { formatMoney } from '../../lib/money';
 
 export function TransactionHistory() {
   const { claims, users, statusHistory } = useAppContext();
@@ -99,7 +100,7 @@ export function TransactionHistory() {
                         </div>
                       </div>
                     </td>
-                    <td className="px-6 py-5 font-mono-data text-sm font-bold">${claim.total.toFixed(2)}</td>
+                    <td className="px-6 py-5 font-mono-data text-sm font-bold">{formatMoney(claim.total)}</td>
                     <td className="px-6 py-5 text-on-surface-variant text-sm">
                       {completedAt ? completedAt.toLocaleDateString() : '—'}
                     </td>

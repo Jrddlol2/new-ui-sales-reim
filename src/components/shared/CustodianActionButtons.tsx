@@ -2,6 +2,7 @@ import { useState } from 'react';
 import { Button } from '../ui/Button';
 import { Input, Select } from '../ui/Input';
 import { ClaimStatus, Claim } from '../../types';
+import { formatMoney } from '../../lib/money';
 import { ConfirmModal } from './ConfirmModal';
 import { useAppContext } from '../AppContext';
 import { useToast } from './ToastContext';
@@ -156,7 +157,7 @@ export function CustodianActionButtons({ claim, size = 'sm' }: CustodianActionBu
                             <div className="font-medium text-on-surface">{item.category}</div>
                             <div className="text-outline text-xs">{item.vendor}</div>
                           </td>
-                          <td className="px-3 py-2 text-right font-mono-data">${item.amount.toFixed(2)}</td>
+                          <td className="px-3 py-2 text-right font-mono-data">{formatMoney(item.amount)}</td>
                           <td className="px-3 py-2 text-center">
                             {item.receiptUrl ? (
                               <a
@@ -180,7 +181,7 @@ export function CustodianActionButtons({ claim, size = 'sm' }: CustodianActionBu
               )}
               <div className="flex justify-between items-center pt-2 border-t border-outline-variant">
                 <span className="font-label-md text-on-surface-variant">Claim Total</span>
-                <span className="font-mono-data font-bold text-on-surface">${claim.total.toFixed(2)}</span>
+                <span className="font-mono-data font-bold text-on-surface">{formatMoney(claim.total)}</span>
               </div>
               <div>
                 <label className="block text-label-md text-on-surface mb-1">Payment Method <span className="text-error">*</span></label>
@@ -242,7 +243,7 @@ export function CustodianActionButtons({ claim, size = 'sm' }: CustodianActionBu
         confirmLabel={isSubmitting ? "Closing..." : "Close Liquidation"}
         disabled={isSubmitting}
       >
-        <p className="mb-4 text-body-md text-on-surface-variant">Confirm the refund of {`$${Math.abs(claim.varianceAmount || 0).toFixed(2)}`} has been physically collected from the requestor, then close this liquidation.</p>
+        <p className="mb-4 text-body-md text-on-surface-variant">Confirm the refund of {formatMoney(Math.abs(claim.varianceAmount || 0))} has been physically collected from the requestor, then close this liquidation.</p>
         <div className="space-y-4">
           <div>
             <label className="block text-label-md text-on-surface mb-1">Refund Method <span className="text-error">*</span></label>

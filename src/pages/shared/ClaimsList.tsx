@@ -8,6 +8,7 @@ import { KPICard } from '../../components/ui/KPICard';
 import { useAppContext } from '../../components/AppContext';
 import { Pagination } from '../../components/ui/Pagination';
 import { ClaimStatus, UserRole } from '../../types';
+import { formatMoney } from '../../lib/money';
 
 const ACTIVE_STATUSES = [ClaimStatus.DRAFT, ClaimStatus.PENDING_APPROVAL, ClaimStatus.PROCESSING, ClaimStatus.READY_FOR_CLAIM];
 
@@ -71,15 +72,13 @@ export function ClaimsList() {
             <KPICard title="Active Claims" value={activeClaimsCount.toString()} icon="pending_actions" iconColorClass="bg-primary-fixed text-on-primary-fixed-variant" />
             <KPICard
               title="Unliquidated Float"
-              value={unliquidatedFloat.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
-              prefix="$"
+              value={formatMoney(unliquidatedFloat)}
               icon="account_balance_wallet"
               iconColorClass="bg-secondary-container text-on-secondary-fixed-variant"
             />
             <KPICard
               title="Total Reimbursed"
-              value={totalReimbursed.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
-              prefix="$"
+              value={formatMoney(totalReimbursed)}
               icon="payments"
               iconColorClass="bg-tertiary-fixed text-on-tertiary-fixed-variant"
               trend={`${completedClaims.length} completed claim${completedClaims.length === 1 ? '' : 's'}`}
@@ -157,7 +156,7 @@ export function ClaimsList() {
                   <td className="px-6 py-4 font-mono-data font-medium">{claim.ref}</td>
                   <td className="px-4 py-4">{claim.type}</td>
                   <td className="px-4 py-4">{claim.purpose}</td>
-                  <td className="px-4 py-4 font-semibold">${claim.total.toFixed(2)}</td>
+                  <td className="px-4 py-4 font-semibold">{formatMoney(claim.total)}</td>
                   <td className="px-6 py-4">
                     <StatusBadge status={claim.status} />
                   </td>

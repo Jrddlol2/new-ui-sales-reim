@@ -2,6 +2,7 @@ import { useState, useEffect } from 'react';
 import { Portal } from '../../components/shared/Portal';
 
 import { Card, CardContent } from '../../components/ui/Card';
+import { formatMoney } from '../../lib/money';
 import { Button } from '../../components/ui/Button';
 import { Input, Select } from '../../components/ui/Input';
 import { Pagination } from '../../components/ui/Pagination';
@@ -156,7 +157,7 @@ export function Receipts() {
               <CardContent className="p-4 bg-surface-container-lowest">
                 <div className="flex justify-between items-start mb-1">
                   <p className="font-label-md text-on-surface font-semibold truncate">{receipt.vendor}</p>
-                  <p className="font-mono-data font-bold text-primary">${receipt.amount.toFixed(2)}</p>
+                  <p className="font-mono-data font-bold text-primary">{formatMoney(receipt.amount)}</p>
                 </div>
                 <div className="flex justify-between items-center text-xs text-outline mt-2 pt-2 border-t border-outline-variant/40">
                   <span>{receipt.date}</span>
@@ -213,7 +214,7 @@ export function Receipts() {
             <div className="flex justify-between items-center text-sm pt-2">
               <div>
                 <span className="text-outline">Category:</span> <span className="font-semibold text-on-surface">{selectedReceipt.category}</span>
-                <span className="ml-4 text-outline">Amount:</span> <span className="font-mono-data font-bold text-primary">${selectedReceipt.amount.toFixed(2)}</span>
+                <span className="ml-4 text-outline">Amount:</span> <span className="font-mono-data font-bold text-primary">{formatMoney(selectedReceipt.amount)}</span>
               </div>
               <div className="flex gap-2">
                 <a href={uploadUrl(selectedReceipt.fileUrl)} target="_blank" rel="noreferrer" download={selectedReceipt.fileName}>

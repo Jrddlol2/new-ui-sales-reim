@@ -6,6 +6,7 @@ import { Card, CardHeader, CardContent } from '../../components/ui/Card';
 import { StatusBadge } from '../../components/ui/StatusBadge';
 import { useAppContext } from '../../components/AppContext';
 import { ClaimStatus } from '../../types';
+import { formatMoney } from '../../lib/money';
 
 const ACTIVE_STATUSES = [ClaimStatus.DRAFT, ClaimStatus.PENDING_APPROVAL, ClaimStatus.PROCESSING, ClaimStatus.READY_FOR_CLAIM];
 const LIQUIDATION_DEADLINE_DAYS = 7; // mirrors server.ts's LIQUIDATION_DEADLINE_DAYS
@@ -87,8 +88,7 @@ export function RequestorDashboard() {
         />
         <KPICard
           title="Unliquidated Float"
-          value={unliquidatedFloat.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
-          prefix="$"
+          value={formatMoney(unliquidatedFloat)}
           icon="account_balance_wallet"
           iconColorClass="bg-secondary-container text-on-secondary-fixed-variant"
           trend={overdueAdvances.length > 0 ? `${overdueAdvances.length} Overdue` : openAdvances.length > 0 ? 'On track' : 'None outstanding'}
@@ -97,8 +97,7 @@ export function RequestorDashboard() {
         />
         <KPICard
           title="Total Reimbursed"
-          value={totalReimbursed.toLocaleString(undefined, {minimumFractionDigits: 2, maximumFractionDigits: 2})}
-          prefix="$"
+          value={formatMoney(totalReimbursed)}
           icon="payments"
           iconColorClass="bg-tertiary-fixed text-on-tertiary-fixed-variant"
           trend={`${completedClaims.length} completed claim${completedClaims.length === 1 ? '' : 's'}`}
@@ -138,7 +137,7 @@ export function RequestorDashboard() {
                     <td className="px-6 py-4 font-mono-data font-medium">{claim.ref}</td>
                     <td className="px-4 py-4">{claim.type}</td>
                     <td className="px-4 py-4">{claim.purpose}</td>
-                    <td className="px-4 py-4 font-semibold">${claim.total.toFixed(2)}</td>
+                    <td className="px-4 py-4 font-semibold">{formatMoney(claim.total)}</td>
                     <td className="px-6 py-4">
                       <StatusBadge status={claim.status} />
                     </td>

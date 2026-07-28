@@ -5,6 +5,7 @@ import { Button } from '../../components/ui/Button';
 import { StatusBadge } from '../../components/ui/StatusBadge';
 import { useAppContext } from '../../components/AppContext';
 import { ClaimStatus } from '../../types';
+import { formatMoney } from '../../lib/money';
 
 const DECISION_STATUSES: string[] = [ClaimStatus.APPROVED, ClaimStatus.REJECTED, ClaimStatus.RETURNED];
 const PENDING_STATUSES: string[] = [ClaimStatus.PENDING_APPROVAL, ClaimStatus.SUBMITTED];
@@ -104,7 +105,7 @@ export function ApproverDashboard() {
         </div>
         <div className="bg-surface-container-lowest p-6 border border-outline-variant rounded-card shadow-sm">
           <p className="font-label-sm text-outline uppercase mb-2">Total Pending Amount</p>
-          <p className="font-headline-lg text-on-surface">${totalPendingAmount.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</p>
+          <p className="font-headline-lg text-on-surface">{formatMoney(totalPendingAmount)}</p>
         </div>
         <div className="bg-surface-container-lowest p-6 border border-outline-variant rounded-card shadow-sm">
           <p className="font-label-sm text-outline uppercase mb-2">Avg. Response Time</p>
@@ -182,7 +183,7 @@ export function ApproverDashboard() {
                         {claim.type}
                       </div>
                     </td>
-                    <td className="px-6 py-4 font-mono-data text-on-surface font-bold">${claim.total.toFixed(2)}</td>
+                    <td className="px-6 py-4 font-mono-data text-on-surface font-bold">{formatMoney(claim.total)}</td>
                     <td className="px-6 py-4 text-center">
                       <StatusBadge status={claim.status} />
                     </td>

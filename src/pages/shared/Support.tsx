@@ -10,6 +10,7 @@ import {
 } from '../../lib/api';
 import { fromServerSupport } from '../../lib/api';
 import { SupportRequest, SupportRequestStatus, UserRole } from '../../types';
+import { formatMoney } from '../../lib/money';
 
 export function Support() {
   const { currentUser, supportRequests, refresh, claims } = useAppContext();
@@ -288,7 +289,7 @@ export function Support() {
                 <Select value={relatedEntityId} onChange={e => setRelatedEntityId(e.target.value)}>
                   <option value="">None</option>
                   {claims.map(c => (
-                    <option key={c.id} value={c.id}>{c.ref} - ${c.total.toFixed(2)} ({c.purpose})</option>
+                    <option key={c.id} value={c.id}>{c.ref} - {formatMoney(c.total)} ({c.purpose})</option>
                   ))}
                 </Select>
               </div>

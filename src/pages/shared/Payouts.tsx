@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import { Card } from '../../components/ui/Card';
 import { Button } from '../../components/ui/Button';
+import { formatMoney } from '../../lib/money';
 import { ConfirmModal } from '../../components/shared/ConfirmModal';
 import { useAppContext } from '../../components/AppContext';
 import { useToast } from '../../components/shared/ToastContext';
@@ -86,7 +87,7 @@ export function Payouts() {
                 </span>
               </div>
               <div className="flex items-baseline justify-between">
-                <span className="font-mono-data font-bold text-2xl text-on-surface">${claim.total.toFixed(2)}</span>
+                <span className="font-mono-data font-bold text-2xl text-on-surface">{formatMoney(claim.total)}</span>
                 {claim.paymentMethod && (
                   <span className="text-body-sm text-outline">via {claim.paymentMethod}</span>
                 )}

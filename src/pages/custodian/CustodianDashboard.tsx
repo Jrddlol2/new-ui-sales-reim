@@ -6,6 +6,7 @@ import { StatusBadge } from '../../components/ui/StatusBadge';
 import { KPICard } from '../../components/ui/KPICard';
 import { useAppContext } from '../../components/AppContext';
 import { ClaimStatus } from '../../types';
+import { formatMoney } from '../../lib/money';
 
 export function CustodianDashboard() {
   const navigate = useNavigate();
@@ -141,7 +142,7 @@ export function CustodianDashboard() {
                         </div>
                       </div>
                     </td>
-                    <td className="px-6 py-5 font-mono-data text-sm font-bold">${claim.total.toFixed(2)}</td>
+                    <td className="px-6 py-5 font-mono-data text-sm font-bold">{formatMoney(claim.total)}</td>
                     <td className="px-6 py-5">
                       <StatusBadge status={claim.status} />
                     </td>

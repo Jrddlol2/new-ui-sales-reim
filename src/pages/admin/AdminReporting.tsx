@@ -5,6 +5,7 @@ import { Select } from '../../components/ui/Input';
 import { useAppContext } from '../../components/AppContext';
 import { useToast } from '../../components/shared/ToastContext';
 import { ResponsiveContainer, BarChart, Bar, XAxis, YAxis, Tooltip, PieChart, Pie, Cell, Legend } from 'recharts';
+import { formatMoney } from '../../lib/money';
 
 export function AdminReporting() {
   const { claims, lineItems, users, statusHistory } = useAppContext();
@@ -152,7 +153,7 @@ export function AdminReporting() {
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
         <Card className="p-6 bg-surface-container-low">
           <p className="text-xs font-bold uppercase tracking-wider text-outline mb-1">Total Period Expenditure</p>
-          <p className="font-mono-data text-2xl font-bold text-primary">${totalFilteredSpend.toFixed(2)}</p>
+          <p className="font-mono-data text-2xl font-bold text-primary">{formatMoney(totalFilteredSpend)}</p>
           <p className="text-[11px] text-outline mt-1">{filteredClaims.length} total claims match filter</p>
         </Card>
 
@@ -189,8 +190,8 @@ export function AdminReporting() {
               <ResponsiveContainer width="100%" height="100%">
                 <BarChart data={categoryChartData}>
                   <XAxis dataKey="name" stroke="#888888" fontSize={12} />
-                  <YAxis stroke="#888888" fontSize={12} tickFormatter={val => `$${val}`} />
-                  <Tooltip formatter={(value: any) => [`$${value}`, 'Amount']} />
+                  <YAxis stroke="#888888" fontSize={12} tickFormatter={val => formatMoney(val)} />
+                  <Tooltip formatter={(value: any) => [formatMoney(value), 'Amount']} />
                   <Bar dataKey="amount" fill="#3b82f6" radius={[4, 4, 0, 0]} />
                 </BarChart>
               </ResponsiveContainer>
@@ -209,9 +210,9 @@ export function AdminReporting() {
             ) : (
               <ResponsiveContainer width="100%" height="100%">
                 <BarChart data={userSpendChartData} layout="vertical">
-                  <XAxis type="number" stroke="#888888" fontSize={12} tickFormatter={val => `$${val}`} />
+                  <XAxis type="number" stroke="#888888" fontSize={12} tickFormatter={val => formatMoney(val)} />
                   <YAxis type="category" dataKey="name" stroke="#888888" fontSize={12} width={100} />
-                  <Tooltip formatter={(value: any) => [`$${value}`, 'Total Spend']} />
+                  <Tooltip formatter={(value: any) => [formatMoney(value), 'Total Spend']} />
                   <Bar dataKey="amount" fill="#10b981" radius={[0, 4, 4, 0]} />
                 </BarChart>
               </ResponsiveContainer>

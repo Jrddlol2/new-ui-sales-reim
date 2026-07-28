@@ -10,6 +10,7 @@ import { useAppContext } from '../../components/AppContext';
 import { useToast } from '../../components/shared/ToastContext';
 import { confirmReceipt, uploadUrl } from '../../lib/api';
 import { UserRole, ClaimStatus, ExpenseLineItem } from '../../types';
+import { formatMoney } from '../../lib/money';
 
 export function ClaimDetail() {
   const { addToast } = useToast();
@@ -161,7 +162,7 @@ export function ClaimDetail() {
                   <div>
                      <p className="font-label-sm text-on-surface-variant uppercase tracking-wider mb-1">Variance Amount</p>
                      <p className={`font-body-lg font-bold ${claim.varianceType === 'RefundDue' ? 'text-error' : claim.varianceType === 'ReimbursementDue' ? 'text-primary' : 'text-green-600'}`}>
-                        ${Math.abs(claim.varianceAmount || 0).toFixed(2)}
+                        {formatMoney(Math.abs(claim.varianceAmount || 0))}
                         <span className="block text-sm font-normal text-on-surface-variant mt-1">{claim.varianceType}</span>
                      </p>
                   </div>
@@ -174,7 +175,7 @@ export function ClaimDetail() {
             <CardHeader>
               <h3 className="font-headline-md text-on-surface">Expense Line Items</h3>
               <div className="bg-primary-fixed text-on-primary-fixed px-3 py-1 rounded-full font-label-md">
-                Total: ${claim.total.toFixed(2)}
+                Total: {formatMoney(claim.total)}
               </div>
             </CardHeader>
             <div className="overflow-x-auto">
@@ -205,7 +206,7 @@ export function ClaimDetail() {
                           <p className="text-on-surface-variant text-[11px]">{item.businessPurpose}</p>
                         </td>
                         <td className="px-4 py-3 text-xs text-on-surface-variant">{item.paymentMethod || 'Personal Card'}</td>
-                        <td className="px-4 py-3 font-mono-data text-right font-bold text-xs">${item.amount.toFixed(2)}</td>
+                        <td className="px-4 py-3 font-mono-data text-right font-bold text-xs">{formatMoney(item.amount)}</td>
                         <td className="px-4 py-3 text-center">
                           {hasReceipt ? (
                             <button 
@@ -322,7 +323,7 @@ export function ClaimDetail() {
             <div className="space-y-1 text-sm text-on-surface">
               <p><span className="text-outline">Vendor:</span> {activeReceipt.vendor || 'N/A'}</p>
               <p><span className="text-outline">Category:</span> {activeReceipt.category}</p>
-              <p><span className="text-outline">Amount:</span> ${activeReceipt.amount.toFixed(2)}</p>
+              <p><span className="text-outline">Amount:</span> {formatMoney(activeReceipt.amount)}</p>
             </div>
 
             <div className="flex justify-end gap-2 pt-2 border-t border-outline-variant">
@@ -354,7 +355,7 @@ export function ClaimDetail() {
 
               <p className="text-body-sm text-on-surface-variant">
                 Enter the release code provided by your custodian to confirm you received the
-                payout for <span className="font-semibold text-on-surface">{claim.ref}</span> (${claim.total.toFixed(2)}).
+                payout for <span className="font-semibold text-on-surface">{claim.ref}</span> ({formatMoney(claim.total)}).
                 This completes your reimbursement.
               </p>
 

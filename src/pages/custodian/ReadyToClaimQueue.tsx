@@ -2,6 +2,7 @@ import { useNavigate } from 'react-router-dom';
 import { Card, CardHeader } from '../../components/ui/Card';
 import { StatusBadge } from '../../components/ui/StatusBadge';
 import { ClaimStatus } from '../../types';
+import { formatMoney } from '../../lib/money';
 import { useAppContext } from '../../components/AppContext';
 
 export function ReadyToClaimQueue() {
@@ -77,7 +78,7 @@ export function ReadyToClaimQueue() {
                         {claim.type}
                       </div>
                     </td>
-                    <td className="px-6 py-4 font-mono-data text-on-surface font-bold">${claim.total.toFixed(2)}</td>
+                    <td className="px-6 py-4 font-mono-data text-on-surface font-bold">{formatMoney(claim.total)}</td>
                     <td className="px-6 py-4">
                       {claim.releaseCode ? (
                         <span className="font-mono-data text-sm bg-surface-container-high px-2.5 py-1 rounded tracking-widest text-on-surface">{claim.releaseCode}</span>

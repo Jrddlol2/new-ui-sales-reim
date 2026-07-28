@@ -10,6 +10,7 @@ import { DynamicFieldRenderer } from '../../components/shared/DynamicFieldRender
 import { useToast } from '../../components/shared/ToastContext';
 import { MinutesSource, ClaimStatus } from '../../types';
 import { submitClaimFlow, submitCashAdvanceFlow, submitLiquidationFlow, DraftLineItem } from '../../lib/api';
+import { formatMoney } from '../../lib/money';
 
 export function SubmitClaim() {
   const navigate = useNavigate();
@@ -307,7 +308,7 @@ export function SubmitClaim() {
                   <Label required>Select Cash Advance to Liquidate</Label>
                   <Select value={cashAdvanceId} onChange={e => setCashAdvanceId(e.target.value)}>
                     <option value="">-- Select --</option>
-                    {myCashAdvances.map(ca => <option key={ca.id} value={ca.id}>{ca.ref} - ${ca.total.toFixed(2)} ({ca.purpose})</option>)}
+                    {myCashAdvances.map(ca => <option key={ca.id} value={ca.id}>{ca.ref} - {formatMoney(ca.total)} ({ca.purpose})</option>)}
                   </Select>
                 </div>
               )}
@@ -319,7 +320,7 @@ export function SubmitClaim() {
                   <div>
                     <Label required>Requested Amount</Label>
                     <div className="relative">
-                      <span className="absolute left-3 top-1/2 -translate-y-1/2 text-outline-variant">$</span>
+                      <span className="absolute left-3 top-1/2 -translate-y-1/2 text-outline-variant">₱</span>
                       <Input type="number" value={cashAdvanceAmount || ''} onChange={e => setCashAdvanceAmount(Number(e.target.value))} className="pl-6" />
                     </div>
                   </div>
@@ -389,7 +390,7 @@ export function SubmitClaim() {
                         </td>
                         <td className="px-3 py-3">
                           <div className="relative">
-                            <span className="absolute left-2 top-1/2 -translate-y-1/2 text-outline-variant text-xs">$</span>
+                            <span className="absolute left-2 top-1/2 -translate-y-1/2 text-outline-variant text-xs">₱</span>
                             <Input type="number" value={item.amount || ''} onChange={e => { const n = [...lineItemsLocal]; n[idx].amount = Number(e.target.value); setLineItemsLocal(n); }} className="pl-5 py-1 px-2 text-right font-mono-data text-xs" />
                           </div>
                         </td>
@@ -432,12 +433,12 @@ export function SubmitClaim() {
                 {claimType === 'Liquidation' && cashAdvanceId && (
                   <div className="text-right">
                     <span className="font-label-sm text-on-surface-variant uppercase">Advance</span>
-                    <p className="font-headline-md">${(claims.find(c => c.id === cashAdvanceId)?.total || 0).toFixed(2)}</p>
+                    <p className="font-headline-md">{formatMoney(claims.find(c => c.id === cashAdvanceId)?.total || 0)}</p>
                   </div>
                 )}
                 <div className="text-right bg-primary-container text-on-primary-container px-6 py-3 rounded-lg">
                   <span className="font-label-sm uppercase opacity-80">{claimType === 'Liquidation' ? varianceType : 'Total Amount'}</span>
-                  <p className="text-[28px] font-bold leading-none mt-1">${claimType === 'Liquidation' ? Math.abs(varianceAmount).toFixed(2) : totalAmount.toFixed(2)}</p>
+                  <p className="text-[28px] font-bold leading-none mt-1">{formatMoney(claimType === 'Liquidation' ? Math.abs(varianceAmount) : totalAmount)}</p>
                 </div>
               </div>
             </CardContent>
@@ -572,7 +573,7 @@ export function SubmitClaim() {
             <p className="text-on-surface-variant mb-6">Review your {claimType} before submission.</p>
             <div className="bg-surface-container p-6 rounded-lg text-left inline-block w-full max-w-md">
               <div className="flex justify-between mb-2"><span className="text-on-surface-variant">Type:</span><span className="font-bold">{claimType}</span></div>
-              <div className="flex justify-between mb-2"><span className="text-on-surface-variant">Total Amount:</span><span className="font-mono-data font-bold">${totalAmount.toFixed(2)}</span></div>
+              <div className="flex justify-between mb-2"><span className="text-on-surface-variant">Total Amount:</span><span className="font-mono-data font-bold">{formatMoney(totalAmount)}</span></div>
               <div className="flex justify-between"><span className="text-on-surface-variant">Approver:</span><span className="font-bold">{approver?.name || 'Assigned Approver'}</span></div>
             </div>
           </Card>
