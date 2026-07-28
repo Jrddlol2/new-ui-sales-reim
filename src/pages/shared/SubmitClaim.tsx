@@ -9,7 +9,7 @@ import { useAppContext } from '../../components/AppContext';
 import { DynamicFieldRenderer } from '../../components/shared/DynamicFieldRenderer';
 import { useToast } from '../../components/shared/ToastContext';
 import { MinutesSource, ClaimStatus } from '../../types';
-import { submitClaimFlow, DraftLineItem } from '../../lib/api';
+import { submitClaimFlow, submitCashAdvanceFlow, submitLiquidationFlow, DraftLineItem } from '../../lib/api';
 
 export function SubmitClaim() {
   const navigate = useNavigate();
@@ -31,6 +31,8 @@ export function SubmitClaim() {
   });
   const [momFile, setMomFile] = useState<File | undefined>();
   const [cashAdvanceId, setCashAdvanceId] = useState<string>('');
+  const [cashAdvanceAmount, setCashAdvanceAmount] = useState<number>(0);
+  const [cashAdvancePurpose, setCashAdvancePurpose] = useState('');
   const [momSource, setMomSource] = useState<MinutesSource>(MinutesSource.TEMPLATE);
   const [momData, setMomData] = useState<Record<string, any>>({});
   const [claimCustomFields, setClaimCustomFields] = useState<Record<string, string>>({});
@@ -44,12 +46,38 @@ export function SubmitClaim() {
     { num: 4, title: 'Review & Submit' }
   ];
 
+  // A Cash Advance is just an amount + purpose, and a Liquidation has no MOM
+  // or review-meeting concept of its own — both skip straight from Details to
+  // Review & Submit. Only a Reimbursement walks all four steps.
+  const stepFlow = claimType === 'Reimbursement' ? [1, 2, 3, 4] : [1, 4];
+  const flowPosition = stepFlow.indexOf(step);
+
   const handleNext = () => {
-    if (step === 1 && lineItemsLocal.length === 0 && claimType !== 'Cash Advance') {
+    if (step === 1 && claimType === 'Reimbursement' && lineItemsLocal.length === 0) {
       addToast('Please add at least one line item', 'error');
       return;
     }
-    if (step === 1) {
+    if (step === 1 && claimType === 'Cash Advance') {
+      if (!cashAdvanceAmount || cashAdvanceAmount <= 0) {
+        addToast('Please enter the amount you\'re requesting', 'error');
+        return;
+      }
+      if (!cashAdvancePurpose.trim()) {
+        addToast('Please enter a purpose for this Cash Advance', 'error');
+        return;
+      }
+    }
+    if (step === 1 && claimType === 'Liquidation') {
+      if (!cashAdvanceId) {
+        addToast('Please select the Cash Advance to liquidate', 'error');
+        return;
+      }
+      if (lineItemsLocal.length === 0) {
+        addToast('Please add at least one expense line item', 'error');
+        return;
+      }
+    }
+    if (step === 1 && claimType === 'Reimbursement') {
       // Must mirror DynamicFieldRenderer's own filter exactly â€” validating a
       // field the renderer hides leaves the user blocked by an invisible input.
       const activeClaimFields = fieldDefinitions.filter(fd =>
@@ -62,7 +90,7 @@ export function SubmitClaim() {
         return;
       }
     }
-    if (step === 2 && claimType !== 'Cash Advance' && momSource === MinutesSource.TEMPLATE) {
+    if (step === 2 && momSource === MinutesSource.TEMPLATE) {
       const activeMomFields = fieldDefinitions.filter(fd => fd.entity === 'mom' && fd.active);
       const missingRequired = activeMomFields.find(fd => fd.required && (!momData[fd.key] || momData[fd.key].trim() === ''));
       if (missingRequired) {
@@ -70,11 +98,17 @@ export function SubmitClaim() {
         return;
       }
     }
-    setStep(s => Math.min(s + 1, 4));
+    const nextIndex = flowPosition + 1;
+    if (nextIndex < stepFlow.length) setStep(stepFlow[nextIndex]);
   };
-  const handleBack = () => setStep(s => Math.max(s - 1, 0));
-  
-  const totalAmount = lineItemsLocal.reduce((sum, item) => sum + (Number(item.amount) || 0), 0);
+  const handleBack = () => {
+    const prevIndex = flowPosition - 1;
+    setStep(prevIndex >= 0 ? stepFlow[prevIndex] : 0);
+  };
+
+  const totalAmount = claimType === 'Cash Advance'
+    ? Number(cashAdvanceAmount) || 0
+    : lineItemsLocal.reduce((sum, item) => sum + (Number(item.amount) || 0), 0);
   const flaggedHighValue = lineItemsLocal.some(item => (Number(item.amount) || 0) > 15000);
   
   let varianceAmount = 0;
@@ -104,31 +138,50 @@ export function SubmitClaim() {
   };
 
   /** Shared by Save Draft and Submit â€” same three server writes, different finality. */
+  /**
+   * Each claim type owns a genuinely different server-side flow (AUDIT #1-2:
+   * both used to be silently forced through the reimbursement endpoint,
+   * which the server rejects for anything without expense line items).
+   */
   const send = async (isDraft: boolean) => {
     setLoading(true);
     try {
-      await submitClaimFlow({
-        lineItems: lineItemsLocal,
-        mom: {
-          ...momCore,
+      if (claimType === 'Cash Advance') {
+        await submitCashAdvanceFlow({
+          amount: cashAdvanceAmount,
+          purpose: cashAdvancePurpose,
+          isDraft,
+        });
+      } else if (claimType === 'Liquidation') {
+        await submitLiquidationFlow({
+          cashAdvanceId,
+          lineItems: lineItemsLocal,
+          isDraft,
+        });
+      } else {
+        await submitClaimFlow({
+          lineItems: lineItemsLocal,
+          mom: {
+            ...momCore,
+            meetingDate,
+            meetingTime,
+            source: momSource,
+            file: momFile,
+          },
+          customFields: { ...momData, ...claimCustomFields },
           meetingDate,
           meetingTime,
-          source: momSource,
-          file: momFile,
-        },
-        customFields: { ...momData, ...claimCustomFields },
-        meetingDate,
-        meetingTime,
-        remarks: momCore.purpose,
-        isDraft,
-      });
+          remarks: momCore.purpose,
+          isDraft,
+        });
+      }
       await refresh();
-      addToast(isDraft ? 'Saved as draft.' : 'Claim submitted successfully!', 'success');
+      addToast(isDraft ? 'Saved as draft.' : `${claimType} submitted successfully!`, 'success');
       navigate('/claims');
     } catch (err: any) {
       // Server-side workflow rules (missing receipt, unscheduled review meeting,
       // no assigned manager) surface here verbatim rather than being guessed at.
-      addToast(err?.message || 'Could not submit the claim.', 'error');
+      addToast(err?.message || `Could not submit the ${claimType.toLowerCase()}.`, 'error');
     } finally {
       setLoading(false);
     }
@@ -182,33 +235,33 @@ export function SubmitClaim() {
         <div className="flex justify-between items-end mb-8">
           <div>
             <h2 className="font-headline-lg text-on-surface">Submit {claimType}</h2>
-            <p className="font-body-base text-on-surface-variant">Step {step} of 4: {steps[step - 1].title}</p>
+            <p className="font-body-base text-on-surface-variant">Step {flowPosition + 1} of {stepFlow.length}: {steps[step - 1].title}</p>
           </div>
           <div className="text-right hidden sm:block">
             <span className="font-label-sm text-primary uppercase">Draft mode</span>
           </div>
         </div>
 
-        {/* Stepper */}
+        {/* Stepper â€” only renders the steps this claim type actually visits */}
         <div className="relative flex items-center justify-between w-full max-w-4xl mx-auto pt-6">
           <div className="absolute top-[44px] left-0 w-full h-[2px] bg-outline-variant -z-10"></div>
-          <div 
+          <div
             className="absolute top-[44px] left-0 h-[2px] bg-primary -z-10 transition-all duration-500"
-            style={{ width: `${((step - 1) / 3) * 100}%` }}
+            style={{ width: stepFlow.length > 1 ? `${(flowPosition / (stepFlow.length - 1)) * 100}%` : '0%' }}
           ></div>
-          
-          {steps.map((s) => {
+
+          {steps.filter(s => stepFlow.includes(s.num)).map((s, idx) => {
             const isActive = step === s.num;
-            const isCompleted = step > s.num;
+            const isCompleted = flowPosition > idx;
             return (
               <div key={s.num} className="relative z-10 flex flex-col items-center">
                 <div className={cn(
                   "w-10 h-10 rounded-full flex items-center justify-center font-bold text-label-md transition-colors",
-                  isCompleted ? "bg-primary text-on-primary shadow-sm" : 
-                  isActive ? "bg-primary-container text-on-primary-container ring-4 ring-primary-container/20 border-2 border-primary" : 
+                  isCompleted ? "bg-primary text-on-primary shadow-sm" :
+                  isActive ? "bg-primary-container text-on-primary-container ring-4 ring-primary-container/20 border-2 border-primary" :
                   "bg-surface-container-highest text-on-surface-variant border-2 border-outline-variant"
                 )}>
-                  {isCompleted ? <span className="material-symbols-outlined" style={{ fontVariationSettings: "'wght' 700" }}>check</span> : s.num}
+                  {isCompleted ? <span className="material-symbols-outlined" style={{ fontVariationSettings: "'wght' 700" }}>check</span> : idx + 1}
                 </div>
                 <span className={cn("absolute -bottom-8 font-label-sm whitespace-nowrap", isActive ? "text-primary font-bold" : isCompleted ? "text-on-surface font-bold" : "text-on-surface-variant")}>
                   {s.title}
@@ -224,9 +277,11 @@ export function SubmitClaim() {
           <Card>
             <CardHeader>
               <h3 className="font-headline-md text-on-surface">{claimType} Details</h3>
-              <Button size="sm" className="gap-2" onClick={() => setLineItemsLocal(p => [...p, { expenseDate: new Date().toISOString().split('T')[0], amount: 0, paymentMethod: 'Personal Card', vendor: '', category: 'Meals' }])}>
-                <span className="material-symbols-outlined text-[18px]">add</span> Add Row
-              </Button>
+              {claimType !== 'Cash Advance' && (
+                <Button size="sm" className="gap-2" onClick={() => setLineItemsLocal(p => [...p, { expenseDate: new Date().toISOString().split('T')[0], amount: 0, paymentMethod: 'Personal Card', vendor: '', category: 'Meals' }])}>
+                  <span className="material-symbols-outlined text-[18px]">add</span> Add Row
+                </Button>
+              )}
             </CardHeader>
             <CardContent>
               {claimType === 'Liquidation' && (
@@ -238,15 +293,36 @@ export function SubmitClaim() {
                   </Select>
                 </div>
               )}
-              
+
+              {/* A Cash Advance has no expense lines of its own — it's an
+                  amount requested up front, settled later by a Liquidation. */}
+              {claimType === 'Cash Advance' && (
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-6 max-w-2xl mb-6">
+                  <div>
+                    <Label required>Requested Amount</Label>
+                    <div className="relative">
+                      <span className="absolute left-3 top-1/2 -translate-y-1/2 text-outline-variant">$</span>
+                      <Input type="number" value={cashAdvanceAmount || ''} onChange={e => setCashAdvanceAmount(Number(e.target.value))} className="pl-6" />
+                    </div>
+                  </div>
+                  <div>
+                    <Label required>Purpose</Label>
+                    <Input value={cashAdvancePurpose} onChange={e => setCashAdvancePurpose(e.target.value)} placeholder="What is this advance for?" />
+                  </div>
+                </div>
+              )}
+
+              {claimType !== 'Cash Advance' && (
               <div className="mb-6">
-                <DynamicFieldRenderer 
-                  entity="claim" 
+                <DynamicFieldRenderer
+                  entity="claim"
                   claimType={claimType}
-                  values={claimCustomFields} 
-                  onChange={(key, value) => setClaimCustomFields(p => ({ ...p, [key]: value }))} 
+                  values={claimCustomFields}
+                  onChange={(key, value) => setClaimCustomFields(p => ({ ...p, [key]: value }))}
                 />
               </div>
+              )}
+              {claimType !== 'Cash Advance' && (
               <div className="overflow-x-auto">
                 <table className="w-full text-left min-w-[900px]">
                   <thead className="bg-brand-table-header text-on-surface-variant font-label-sm uppercase tracking-wider">
@@ -327,11 +403,14 @@ export function SubmitClaim() {
                   </tbody>
                 </table>
               </div>
+              )}
               <div className="mt-6 flex justify-end gap-8 bg-surface-container-low p-6 rounded-lg">
-                <div className="text-right">
-                  <span className="font-label-sm text-on-surface-variant uppercase">Total Items</span>
-                  <p className="font-headline-md">{lineItemsLocal.length}</p>
-                </div>
+                {claimType !== 'Cash Advance' && (
+                  <div className="text-right">
+                    <span className="font-label-sm text-on-surface-variant uppercase">Total Items</span>
+                    <p className="font-headline-md">{lineItemsLocal.length}</p>
+                  </div>
+                )}
                 {claimType === 'Liquidation' && cashAdvanceId && (
                   <div className="text-right">
                     <span className="font-label-sm text-on-surface-variant uppercase">Advance</span>

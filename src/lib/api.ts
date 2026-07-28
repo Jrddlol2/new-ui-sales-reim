@@ -698,6 +698,88 @@ export async function submitClaimFlow(input: SubmitClaimInput) {
   });
 }
 
+export interface SubmitCashAdvanceInput {
+  amount: number;
+  purpose: string;
+  momId?: string;
+  isDraft?: boolean;
+}
+
+/**
+ * A Cash Advance has no expense line items — it's just an amount + purpose
+ * routed to the requestor's approver. Draft creation and submission are two
+ * separate server calls (POST /api/cash-advances, then .../submit) so a draft
+ * can be created and left for later without ever hitting `submit`.
+ */
+export async function submitCashAdvanceFlow(input: SubmitCashAdvanceInput) {
+  const ca = await apiFetch('/api/cash-advances', {
+    method: 'POST',
+    body: JSON.stringify({
+      amount: input.amount,
+      purpose: input.purpose,
+      momId: input.momId,
+    }),
+  });
+  if (input.isDraft) return ca;
+  return apiFetch(`/api/cash-advances/${ca.id}/submit`, { method: 'POST' });
+}
+
+export interface SubmitLiquidationInput {
+  cashAdvanceId: string;
+  lineItems: DraftLineItem[];
+  isDraft?: boolean;
+}
+
+/**
+ * A Liquidation settles a Released Cash Advance: create the (empty) report
+ * against it, attach each expense as its own line item (receipts upload
+ * first, same as a reimbursement), then submit for the approver's review.
+ * The server computes total/variance itself on every line-item write.
+ */
+export async function submitLiquidationFlow(input: SubmitLiquidationInput) {
+  const liquidation = await apiFetch('/api/liquidations', {
+    method: 'POST',
+    body: JSON.stringify({ cashAdvanceId: input.cashAdvanceId }),
+  });
+
+  for (const li of input.lineItems) {
+    let receiptUrl = li.receiptUrl;
+    if (li.receiptFile) {
+      const up = await uploadFile(li.receiptFile);
+      receiptUrl = up.url;
+    }
+    if (!receiptUrl) {
+      throw new Error('Every liquidation expense needs a receipt attached before you can submit.');
+    }
+    await apiFetch(`/api/liquidations/${liquidation.id}/line-items`, {
+      method: 'POST',
+      body: JSON.stringify({
+        expense_date: li.expenseDate,
+        vendor: li.vendor,
+        category: li.category,
+        amount: Number(li.amount) || 0,
+        payment_method: li.paymentMethod,
+        business_purpose: li.businessPurpose || 'Liquidation expense',
+        receipt_url: receiptUrl,
+        or_number: li.orNumber,
+      }),
+    });
+  }
+
+  if (input.isDraft) return liquidation;
+  return apiFetch(`/api/liquidations/${liquidation.id}/submit`, { method: 'POST' });
+}
+
+/**
+ * Custodian: close out a Reviewed liquidation with a refund due, once the
+ * cash has actually been collected back from the requestor.
+ */
+export const collectLiquidationRefund = (liquidationId: string, referenceNote?: string) =>
+  apiFetch(`/api/liquidations/${liquidationId}/collect-refund`, {
+    method: 'POST',
+    body: JSON.stringify({ referenceNote }),
+  });
+
 /**
  * The master-data route key is the plural-kebab form; the UI's MasterData.type
  * is singular-camel. This is the single place that bridges the two.
@@ -742,6 +824,30 @@ export const createCompany = (body: Record<string, unknown>) =>
 
 export const updateCompany = (id: string, body: Record<string, unknown>) =>
   apiFetch(`/api/companies/${id}`, { method: 'PUT', body: JSON.stringify(body) });
+
+/** One row of a parsed historical-import CSV, already resolved to a requestor. */
+export interface HistoricalImportRecord {
+  requestor_id: string;
+  total_amount: number;
+  expense_category: string;
+  remarks?: string;
+  created_at?: string;
+  lineItems: Array<{
+    expense_date: string;
+    vendor: string;
+    category: string;
+    amount: number;
+    payment_method: string;
+    business_purpose: string;
+  }>;
+}
+
+/** Admin: bulk-create historical (already-completed) claims from a parsed import file. */
+export const importHistoricalClaims = (filename: string, records: HistoricalImportRecord[]) =>
+  apiFetch('/api/imports', {
+    method: 'POST',
+    body: JSON.stringify({ filename, records }),
+  });
 
 export async function uploadFile(file: File): Promise<{ url: string; filename: string }> {
   const form = new FormData();

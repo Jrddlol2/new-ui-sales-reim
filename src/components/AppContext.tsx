@@ -4,6 +4,7 @@ import { mockImportBatches } from '../data';
 import {
   loadWorkspace, setCurrentUserId, decideOnClaim,
   markReadyForClaim, confirmReceipt, releaseCashAdvance, markEmailsRead,
+  collectLiquidationRefund,
 } from '../lib/api';
 
 interface AppContextType {
@@ -163,6 +164,12 @@ export function AppProvider({ children }: { children: ReactNode }) {
           claimId,
           updates?.releaseReference || `REF-${claimId.slice(0, 4).toUpperCase()}`
         );
+        break;
+      case ClaimStatus.CLOSED:
+        // Custodian closing out a Reviewed liquidation's refund. Only valid
+        // when the liquidation is already Reviewed (refund due) — the server
+        // enforces that and rejects otherwise.
+        await collectLiquidationRefund(claimId, updates?.releaseReference);
         break;
       default:
         throw new Error(`No server route maps to status "${newStatus}"`);

@@ -29,7 +29,11 @@ export function ApprovalQueue() {
   const [isSubmitting, setIsSubmitting] = useState(false);
 
   const pendingClaims = useMemo(() => claims.filter(c => {
-    if (c.status !== ClaimStatus.PENDING_APPROVAL) return false;
+    // Reimbursement claims land on 'Pending Approval'; Cash Advances and
+    // Liquidations use the server's own 'Submitted' status for the same
+    // moment — both belong in this queue.
+    const isPending = c.status === ClaimStatus.PENDING_APPROVAL || c.status === ClaimStatus.SUBMITTED;
+    if (!isPending) return false;
     const requestor = users.find(u => u.id === c.requestorId);
     if (!requestor) return false;
     
@@ -208,8 +212,17 @@ export function ApprovalQueue() {
                     <td className="px-6 py-4 text-right">
                       <div className="flex justify-end gap-2 opacity-0 group-hover:opacity-100 transition-opacity">
                         <Button size="sm" variant="outline" className="text-primary border-primary hover:bg-primary/10" onClick={() => handleAction(claim.id, 'approve')}>Approve</Button>
-                        <Button size="sm" variant="outline" className="text-tertiary border-tertiary hover:bg-tertiary/10" onClick={() => handleAction(claim.id, 'return')}>Return</Button>
-                        <Button size="sm" variant="outline" className="text-error border-error hover:bg-error/10" onClick={() => handleAction(claim.id, 'reject')}>Reject</Button>
+                        {/* Each entity's decision vocabulary is server-enforced and differs:
+                            a reimbursement claim takes Approve/Reject/Return; a Cash Advance
+                            has no "return to revise" concept (Approve/Reject only); a
+                            Liquidation has no "reject" concept once cash is already out
+                            with the requestor (Approve/Return only). */}
+                        {claim.type !== 'Cash Advance' && (
+                          <Button size="sm" variant="outline" className="text-tertiary border-tertiary hover:bg-tertiary/10" onClick={() => handleAction(claim.id, 'return')}>Return</Button>
+                        )}
+                        {claim.type !== 'Liquidation' && (
+                          <Button size="sm" variant="outline" className="text-error border-error hover:bg-error/10" onClick={() => handleAction(claim.id, 'reject')}>Reject</Button>
+                        )}
                       </div>
                     </td>
                   </tr>

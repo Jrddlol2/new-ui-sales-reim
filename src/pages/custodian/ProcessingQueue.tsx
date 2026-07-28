@@ -19,14 +19,18 @@ export function ProcessingQueue() {
   const [selectedClaim, setSelectedClaim] = useState<Claim | null>(null);
   const [releaseCode, setReleaseCode] = useState('');
   const [paymentRef, setPaymentRef] = useState('');
+  const [refundRef, setRefundRef] = useState('');
   const [error, setError] = useState('');
   const [isSubmitting, setIsSubmitting] = useState(false);
 
-  const processingClaims = claims.filter(c => 
-    (c.status === ClaimStatus.APPROVED) || 
+  const processingClaims = claims.filter(c =>
+    (c.status === ClaimStatus.APPROVED) ||
     (c.status === ClaimStatus.PROCESSING) ||
     (c.type === 'Cash Advance' && c.status === ClaimStatus.APPROVED) ||
-    (c.type === 'Liquidation' && c.status === ClaimStatus.SUBMITTED) // Assuming liquidation starts Submitted then gets Reviewed/Closed
+    // A Liquidation only reaches the custodian once an Approver has reviewed
+    // it (Submitted -> Reviewed) and a refund is actually owed back — settled
+    // or reimbursement-due liquidations are closed automatically server-side.
+    (c.type === 'Liquidation' && c.status === ClaimStatus.REVIEWED && c.varianceType === 'RefundDue')
   );
 
   let displayedClaims = processingClaims;
@@ -38,6 +42,7 @@ export function ProcessingQueue() {
     setSelectedClaim(claim);
     setReleaseCode('');
     setPaymentRef('');
+    setRefundRef('');
     setError('');
     setActiveModal(action);
   };
@@ -76,6 +81,7 @@ export function ProcessingQueue() {
       case 'closeLiq':
         newStatus = ClaimStatus.CLOSED;
         toastMsg = 'Liquidation closed.';
+        updates = { releaseReference: refundRef || undefined };
         break;
     }
 
@@ -183,7 +189,7 @@ export function ProcessingQueue() {
                         {claim.type === 'Cash Advance' && claim.status === ClaimStatus.APPROVED && (
                           <Button size="sm" onClick={() => handleAction(claim, 'release')}>Release Funds</Button>
                         )}
-                        {claim.type === 'Liquidation' && claim.status === ClaimStatus.SUBMITTED && (
+                        {claim.type === 'Liquidation' && claim.status === ClaimStatus.REVIEWED && claim.varianceType === 'RefundDue' && (
                           <Button size="sm" onClick={() => handleAction(claim, 'closeLiq')}>Close Liquidation</Button>
                         )}
                       </div>
@@ -253,7 +259,8 @@ export function ProcessingQueue() {
         confirmLabel={isSubmitting ? "Closing..." : "Close Liquidation"}
         disabled={isSubmitting}
       >
-        <p>You are about to close this liquidation. Ensure all variances have been settled (e.g. refunds collected).</p>
+        <p className="mb-4 text-body-md text-on-surface-variant">Confirm the refund of {selectedClaim ? `$${Math.abs(selectedClaim.varianceAmount || 0).toFixed(2)}` : ''} has been physically collected from the requestor, then close this liquidation.</p>
+        <Input type="text" placeholder="Reference note (optional)" value={refundRef} onChange={e => setRefundRef(e.target.value)} />
       </ConfirmModal>
     </div>
   );

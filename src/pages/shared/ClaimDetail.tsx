@@ -25,8 +25,12 @@ export function ClaimDetail() {
   const mom = moms.find(m => m.claimId === claim.id);
   const history = statusHistory.filter(h => h.claimId === claim.id).sort((a,b) => new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime());
 
-  // Only Approver can approve/reject, and only if they are not the requestor
-  const isApprover = currentUser.role === UserRole.APPROVER && claim.status === ClaimStatus.PENDING_APPROVAL && currentUser.id !== claim.requestorId;
+  // Only Approver can approve/reject, and only if they are not the requestor.
+  // Reimbursement claims sit at Pending Approval; Cash Advances/Liquidations
+  // use the server's own Submitted status for the same moment.
+  const isApprover = currentUser.role === UserRole.APPROVER &&
+    (claim.status === ClaimStatus.PENDING_APPROVAL || claim.status === ClaimStatus.SUBMITTED) &&
+    currentUser.id !== claim.requestorId;
   const isCustodian = currentUser.role === UserRole.CUSTODIAN && (claim.status === ClaimStatus.PROCESSING || claim.status === ClaimStatus.READY_FOR_CLAIM || claim.status === ClaimStatus.APPROVED);
   // Only the requestor closes the loop, by quoting the code the custodian issued.
   const canConfirmReceipt = currentUser.id === claim.requestorId && claim.status === ClaimStatus.READY_FOR_CLAIM;
