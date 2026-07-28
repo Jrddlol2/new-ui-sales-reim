@@ -9,6 +9,7 @@ import { ToastProvider } from './components/shared/ToastContext';
 import { Layout } from './components/layout/Layout';
 import { Dashboard } from './pages/Dashboard';
 import { ClaimsList } from './pages/shared/ClaimsList';
+import { Payouts } from './pages/shared/Payouts';
 import { SubmitClaim } from './pages/shared/SubmitClaim';
 import { ClaimDetail } from './pages/shared/ClaimDetail';
 import { ApprovalQueue } from './pages/approver/ApprovalQueue';
@@ -46,6 +47,7 @@ function RoleBasedRouter() {
         
         {/* Requestor / General */}
         <Route path="/claims" element={<ClaimsList />} />
+        <Route path="/payouts" element={<Payouts />} />
         <Route path="/claims/new" element={<SubmitClaim />} />
         <Route path="/claims/:id" element={<ClaimDetail />} />
         <Route path="/moms" element={<MOMs />} />

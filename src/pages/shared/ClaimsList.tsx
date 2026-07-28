@@ -1,26 +1,42 @@
 import { useState, useMemo, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Card, CardHeader, CardContent } from '../../components/ui/Card';
+import { Card, CardHeader } from '../../components/ui/Card';
 import { Button } from '../../components/ui/Button';
 import { Input, Select } from '../../components/ui/Input';
 import { StatusBadge } from '../../components/ui/StatusBadge';
+import { KPICard } from '../../components/ui/KPICard';
 import { useAppContext } from '../../components/AppContext';
 import { Pagination } from '../../components/ui/Pagination';
+import { ClaimStatus, UserRole } from '../../types';
+
+const ACTIVE_STATUSES = [ClaimStatus.DRAFT, ClaimStatus.PENDING_APPROVAL, ClaimStatus.PROCESSING, ClaimStatus.READY_FOR_CLAIM];
 
 export function ClaimsList() {
   const { currentUser, claims } = useAppContext();
   const navigate = useNavigate();
-  
+
   const [searchQuery, setSearchQuery] = useState('');
   const [statusFilter, setStatusFilter] = useState('');
   const [currentPage, setCurrentPage] = useState(1);
   const itemsPerPage = 15;
-  
+
   const myClaims = claims.filter(c => c.requestorId === currentUser.id);
+  const isApprover = currentUser.role === UserRole.APPROVER;
+
+  // Requestor-style summary, shown to Approvers too so "My Requests" covers
+  // their own submissions in one place (they don't get a separate requestor
+  // dashboard, but they submit claims like anyone else).
+  const activeClaimsCount = myClaims.filter(c => ACTIVE_STATUSES.includes(c.status)).length;
+  const completedClaims = myClaims.filter(c => c.status === ClaimStatus.COMPLETED);
+  const totalReimbursed = completedClaims.reduce((acc, c) => acc + c.total, 0);
+  const openAdvances = myClaims.filter(c => c.type === 'Cash Advance' && c.status === ClaimStatus.RELEASED);
+  const unliquidatedFloat = openAdvances.reduce((acc, c) => acc + c.total, 0);
+  const readyForClaim = myClaims.filter(c => c.status === ClaimStatus.READY_FOR_CLAIM);
+  const readyForClaimTotal = readyForClaim.reduce((acc, c) => acc + c.total, 0);
 
   const filteredClaims = useMemo(() => {
     return myClaims.filter(claim => {
-      const matchesSearch = claim.ref.toLowerCase().includes(searchQuery.toLowerCase()) || 
+      const matchesSearch = claim.ref.toLowerCase().includes(searchQuery.toLowerCase()) ||
                             claim.purpose.toLowerCase().includes(searchQuery.toLowerCase());
       const matchesStatus = statusFilter ? claim.status === statusFilter : true;
       return matchesSearch && matchesStatus;
@@ -49,19 +65,64 @@ export function ClaimsList() {
         </Button>
       </div>
 
+      {isApprover && (
+        <>
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6">
+            <KPICard title="Active Claims" value={activeClaimsCount.toString()} icon="pending_actions" iconColorClass="bg-primary-fixed text-on-primary-fixed-variant" />
+            <KPICard
+              title="Unliquidated Float"
+              value={unliquidatedFloat.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+              prefix="$"
+              icon="account_balance_wallet"
+              iconColorClass="bg-secondary-container text-on-secondary-fixed-variant"
+            />
+            <KPICard
+              title="Total Reimbursed"
+              value={totalReimbursed.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+              prefix="$"
+              icon="payments"
+              iconColorClass="bg-tertiary-fixed text-on-tertiary-fixed-variant"
+              trend={`${completedClaims.length} completed claim${completedClaims.length === 1 ? '' : 's'}`}
+              trendIcon="check_circle"
+              trendColorClass="text-[#0D9488]"
+            />
+          </div>
+
+          {readyForClaim.length > 0 && (
+            <Card className="mb-6 border-primary/30 bg-primary-container/20">
+              <div className="p-4 flex items-center justify-between gap-4">
+                <div className="flex items-center gap-3">
+                  <span className="material-symbols-outlined text-primary text-[28px]">key</span>
+                  <div>
+                    <p className="font-label-md text-on-surface">
+                      {readyForClaim.length} payout{readyForClaim.length === 1 ? '' : 's'} ready — ${readyForClaimTotal.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })} waiting for you
+                    </p>
+                    <p className="text-body-sm text-outline">Enter your release code to confirm receipt.</p>
+                  </div>
+                </div>
+                <Button className="gap-2 shrink-0" onClick={() => navigate('/payouts')}>
+                  <span className="material-symbols-outlined text-[18px]">arrow_forward</span>
+                  Go to Payouts
+                </Button>
+              </div>
+            </Card>
+          )}
+        </>
+      )}
+
       <Card>
         <CardHeader>
           <div className="flex gap-4 w-full">
             <div className="relative flex-1 max-w-md">
               <span className="material-symbols-outlined absolute left-3 top-1/2 -translate-y-1/2 text-outline">search</span>
-              <Input 
-                className="pl-10 py-1.5" 
-                placeholder="Search claims..." 
+              <Input
+                className="pl-10 py-1.5"
+                placeholder="Search claims..."
                 value={searchQuery}
                 onChange={e => setSearchQuery(e.target.value)}
               />
             </div>
-            <Select 
+            <Select
               className="w-48 py-1.5"
               value={statusFilter}
               onChange={e => setStatusFilter(e.target.value)}
@@ -112,10 +173,10 @@ export function ClaimsList() {
             </tbody>
           </table>
         </div>
-        <Pagination 
-          currentPage={currentPage} 
-          totalPages={totalPages} 
-          onPageChange={setCurrentPage} 
+        <Pagination
+          currentPage={currentPage}
+          totalPages={totalPages}
+          onPageChange={setCurrentPage}
         />
       </Card>
     </div>

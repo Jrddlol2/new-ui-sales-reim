@@ -34,6 +34,9 @@ export function RequestorDashboard() {
     [openAdvances]
   );
 
+  const readyForClaim = myClaims.filter(c => c.status === ClaimStatus.READY_FOR_CLAIM);
+  const readyForClaimTotal = readyForClaim.reduce((acc, c) => acc + c.total, 0);
+
   return (
     <div className="space-y-8 animate-in fade-in duration-500">
       {/* Header Section */}
@@ -53,6 +56,26 @@ export function RequestorDashboard() {
           </Button>
         </div>
       </div>
+
+      {readyForClaim.length > 0 && (
+        <Card className="border-primary/30 bg-primary-container/20">
+          <div className="p-4 flex items-center justify-between gap-4">
+            <div className="flex items-center gap-3">
+              <span className="material-symbols-outlined text-primary text-[28px]">key</span>
+              <div>
+                <p className="font-label-md text-on-surface">
+                  {readyForClaim.length} payout{readyForClaim.length === 1 ? '' : 's'} ready — ${readyForClaimTotal.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })} waiting for you
+                </p>
+                <p className="text-body-sm text-outline">Enter your release code to confirm receipt.</p>
+              </div>
+            </div>
+            <Button className="gap-2 shrink-0" onClick={() => navigate('/payouts')}>
+              <span className="material-symbols-outlined text-[18px]">arrow_forward</span>
+              Go to Payouts
+            </Button>
+          </div>
+        </Card>
+      )}
 
       {/* KPI Row */}
       <div className="grid grid-cols-1 md:grid-cols-3 gap-4">

@@ -12,6 +12,7 @@ const getNavItems = (role: UserRole) => {
     return [
       ...common,
       { label: 'My Requests', icon: 'description', path: '/claims' },
+      { label: 'Payouts', icon: 'key', path: '/payouts' },
       { label: 'Submit Claim', icon: 'add_circle', path: '/claims/new' },
       { label: 'MOMs', icon: 'meeting_room', path: '/moms' },
       { label: 'Receipt Archive', icon: 'receipt_long', path: '/receipts' },
@@ -26,6 +27,7 @@ const getNavItems = (role: UserRole) => {
     return [
       ...common,
       { label: 'My Requests', icon: 'description', path: '/claims' },
+      { label: 'Payouts', icon: 'key', path: '/payouts' },
       { label: 'Submit Claim', icon: 'add_circle', path: '/claims/new' },
       { label: 'Approvals', icon: 'assignment_turned_in', path: '/approvals' },
       { label: 'MOMs', icon: 'meeting_room', path: '/moms' },

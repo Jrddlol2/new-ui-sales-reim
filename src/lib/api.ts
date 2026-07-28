@@ -262,6 +262,7 @@ export function fromServerCashAdvance(ca: any): Claim {
     releasedBy: ca.releasedBy || undefined,
     releaseDate: ca.releaseDate || undefined,
     releaseReference: ca.releaseReference || undefined,
+    paymentMethod: ca.releaseMethod || undefined,
     reminderSent: Boolean(ca.reminderSent),
   };
 }
@@ -282,6 +283,7 @@ export function fromServerLiquidation(l: any): Claim {
     cashAdvanceId: l.cashAdvanceId,
     varianceAmount: Number(l.varianceAmount) || 0,
     varianceType: l.varianceType as Claim['varianceType'],
+    paymentMethod: l.refundMethod || undefined,
   };
 }
 
@@ -413,6 +415,7 @@ export interface WorkspaceData {
   emails: SystemEmail[];
   supportRequests: SupportRequest[];
   delegations: ApproverDelegation[];
+  paymentMethods: string[];
 }
 
 /**
@@ -421,7 +424,7 @@ export interface WorkspaceData {
  * and merged here so components only ever see one list.
  */
 export async function loadWorkspace(): Promise<WorkspaceData> {
-  const [me, users, rawClaims, rawAdvances, rawLiquidations, masterAll, rawFields, rawMoms, rawReviewMeetings, rawCompanies, rawOutbox, rawSupport, rawDelegations] =
+  const [me, users, rawClaims, rawAdvances, rawLiquidations, masterAll, rawFields, rawMoms, rawReviewMeetings, rawCompanies, rawOutbox, rawSupport, rawDelegations, rawSettings] =
     await Promise.all([
       apiFetch('/api/me'),
       apiFetch('/api/users'),
@@ -436,6 +439,7 @@ export async function loadWorkspace(): Promise<WorkspaceData> {
       apiFetch('/api/outbox'),
       apiFetch('/api/support'),
       apiFetch('/api/delegations'),
+      apiFetch('/api/admin/settings'),
     ]);
 
   const claims: Claim[] = [
@@ -479,6 +483,7 @@ export async function loadWorkspace(): Promise<WorkspaceData> {
     emails: (rawOutbox || []).map(fromServerEmail),
     supportRequests: (rawSupport || []).map(fromServerSupport),
     delegations: (rawDelegations || []).map(fromServerDelegation),
+    paymentMethods: rawSettings?.paymentMethods || ['Cash', 'GCash', 'Bank Transfer', 'Check'],
   };
 }
 
@@ -579,10 +584,10 @@ export const confirmReceipt = (claimId: string, code: string) =>
     body: JSON.stringify({ code }),
   });
 
-export const releaseCashAdvance = (id: string, releaseReference: string) =>
+export const releaseCashAdvance = (id: string, releaseReference: string, releaseMethod: string) =>
   apiFetch(`/api/cash-advances/${id}/release`, {
     method: 'POST',
-    body: JSON.stringify({ releaseReference }),
+    body: JSON.stringify({ releaseReference, releaseMethod }),
   });
 
 /** A line item as the wizard holds it, before receipts have been uploaded. */
@@ -774,10 +779,10 @@ export async function submitLiquidationFlow(input: SubmitLiquidationInput) {
  * Custodian: close out a Reviewed liquidation with a refund due, once the
  * cash has actually been collected back from the requestor.
  */
-export const collectLiquidationRefund = (liquidationId: string, referenceNote?: string) =>
+export const collectLiquidationRefund = (liquidationId: string, refundMethod: string, referenceNote?: string) =>
   apiFetch(`/api/liquidations/${liquidationId}/collect-refund`, {
     method: 'POST',
-    body: JSON.stringify({ referenceNote }),
+    body: JSON.stringify({ referenceNote, refundMethod }),
   });
 
 /**

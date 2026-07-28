@@ -304,6 +304,7 @@ export interface CashAdvance {
   releasedBy?: string;
   releaseDate?: string;
   releaseReference?: string;
+  releaseMethod?: string;
   status: CashAdvanceStatus;
   reminderSent?: boolean;
   createdAt: string;

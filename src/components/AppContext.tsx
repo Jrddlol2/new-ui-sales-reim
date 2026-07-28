@@ -28,6 +28,8 @@ interface AppContextType {
   supportRequests: SupportRequest[];
   importBatches: ImportBatch[];
   delegations: ApproverDelegation[];
+  /** Admin-configurable list of valid payment methods; drives every payment picker. */
+  paymentMethods: string[];
   resetData: () => void;
 }
 
@@ -49,6 +51,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
   const [emails, setEmails] = useState<SystemEmail[]>([]);
   const [supportRequests, setSupportRequests] = useState<SupportRequest[]>([]);
   const [delegations, setDelegations] = useState<ApproverDelegation[]>([]);
+  const [paymentMethods, setPaymentMethods] = useState<string[]>([]);
   const [loading, setLoading] = useState(true);
   const [loadError, setLoadError] = useState<string | null>(null);
 
@@ -71,6 +74,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
       setEmails(data.emails);
       setSupportRequests(data.supportRequests);
       setDelegations(data.delegations);
+      setPaymentMethods(data.paymentMethods);
       setLoadError(null);
     } catch (err: any) {
       setLoadError(err?.message || 'Could not reach the server');
@@ -149,16 +153,23 @@ export function AppProvider({ children }: { children: ReactNode }) {
         await confirmReceipt(claimId, updates.releaseCode);
         break;
       case ClaimStatus.RELEASED:
+        if (!updates?.paymentMethod) {
+          throw new Error('Releasing a Cash Advance requires a payment method.');
+        }
         await releaseCashAdvance(
           claimId,
-          updates?.releaseReference || `REF-${claimId.slice(0, 4).toUpperCase()}`
+          updates?.releaseReference || `REF-${claimId.slice(0, 4).toUpperCase()}`,
+          updates.paymentMethod
         );
         break;
       case ClaimStatus.CLOSED:
         // Custodian closing out a Reviewed liquidation's refund. Only valid
         // when the liquidation is already Reviewed (refund due) — the server
         // enforces that and rejects otherwise.
-        await collectLiquidationRefund(claimId, updates?.releaseReference);
+        if (!updates?.paymentMethod) {
+          throw new Error('Closing a Liquidation requires a refund method.');
+        }
+        await collectLiquidationRefund(claimId, updates.paymentMethod, updates?.releaseReference);
         break;
       default:
         throw new Error(`No server route maps to status "${newStatus}"`);
@@ -206,6 +217,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
       supportRequests,
       importBatches,
       delegations,
+      paymentMethods,
       resetData
     }}>
       {children}

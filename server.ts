@@ -41,7 +41,11 @@ let systemSettings = {
     'Client Meals', 'Travel', 'Accommodation', 'Transportation',
     'Office Supplies', 'Software Subscriptions', 'Training', 'Miscellaneous'
   ],
-  highValueThreshold: 15000
+  highValueThreshold: 15000,
+  // Single source of truth for every payment-method picker (disbursement,
+  // cash advance release, liquidation refund collection) so adding/removing
+  // a method is a one-line admin change, not a hunt through JSX.
+  paymentMethods: ['Cash', 'GCash', 'Bank Transfer', 'Check'],
 };
 
 let claimCounter = 123;
@@ -883,12 +887,15 @@ If no action is taken within ${STALE_APPROVER_FALLBACK_DAYS} days, this will be 
     if (!user || user.role !== UserRole.ADMIN) {
       return res.status(403).json({ error: 'Forbidden' });
     }
-    const { expenseCategories, highValueThreshold } = req.body;
+    const { expenseCategories, highValueThreshold, paymentMethods } = req.body;
     if (expenseCategories && Array.isArray(expenseCategories)) {
       systemSettings.expenseCategories = expenseCategories;
     }
     if (typeof highValueThreshold === 'number') {
       systemSettings.highValueThreshold = highValueThreshold;
+    }
+    if (paymentMethods && Array.isArray(paymentMethods)) {
+      systemSettings.paymentMethods = paymentMethods;
     }
     res.json(systemSettings);
   });
@@ -2155,7 +2162,10 @@ Manual reassignment may be needed.`);
     }
 
     const { payment_method } = req.body;
-    claim.payment_method = payment_method || 'Cash';
+    if (!payment_method || !systemSettings.paymentMethods.includes(payment_method)) {
+      return res.status(400).json({ error: `Payment method must be one of: ${systemSettings.paymentMethods.join(', ')}` });
+    }
+    claim.payment_method = payment_method;
     claim.processed_by = user.id;
 
     const oldStatus = claim.status;
@@ -2602,9 +2612,12 @@ You'll receive another email as soon as a decision is made.`
       return res.status(400).json({ error: 'Only Approved Cash Advances can be released.' });
     }
 
-    const { releaseReference } = req.body;
+    const { releaseReference, releaseMethod } = req.body;
     if (!releaseReference) {
       return res.status(400).json({ error: 'Release Reference/Voucher is required.' });
+    }
+    if (!releaseMethod || !systemSettings.paymentMethods.includes(releaseMethod)) {
+      return res.status(400).json({ error: `Release method must be one of: ${systemSettings.paymentMethods.join(', ')}` });
     }
 
     const oldStatus = ca.status;
@@ -2612,7 +2625,8 @@ You'll receive another email as soon as a decision is made.`
     ca.releasedBy = user.id;
     ca.releaseDate = new Date().toISOString();
     ca.releaseReference = releaseReference;
-    addCaHistory(ca.id, oldStatus, CashAdvanceStatus.RELEASED, user.id, `Released with Voucher Reference: ${releaseReference}`);
+    ca.releaseMethod = releaseMethod;
+    addCaHistory(ca.id, oldStatus, CashAdvanceStatus.RELEASED, user.id, `Released via ${releaseMethod} with Voucher Reference: ${releaseReference}`);
 
     sendEmail(
       ca.requestorId,
@@ -3013,11 +3027,14 @@ You'll receive another email as soon as a decision is made.`
       return res.status(400).json({ error: 'No refund is due for this Liquidation.' });
     }
 
-    const { referenceNote } = req.body;
+    const { referenceNote, refundMethod } = req.body;
+    if (!refundMethod || !systemSettings.paymentMethods.includes(refundMethod)) {
+      return res.status(400).json({ error: `Refund method must be one of: ${systemSettings.paymentMethods.join(', ')}` });
+    }
 
     const oldStatus = l.status;
     l.status = LiquidationStatus.CLOSED;
-    
+
     const ca = cashAdvances.find(c => c.id === l.cashAdvanceId);
     let oldCaStatus = '';
     if (ca) {
@@ -3025,12 +3042,13 @@ You'll receive another email as soon as a decision is made.`
       ca.status = CashAdvanceStatus.LIQUIDATED;
     }
 
-    addLiqHistory(l.id, oldStatus, LiquidationStatus.CLOSED, user.id, `Closed (Refund Collected). Note: ${referenceNote || 'Collected by Custodian'}`);
+    addLiqHistory(l.id, oldStatus, LiquidationStatus.CLOSED, user.id, `Closed (Refund Collected via ${refundMethod}). Note: ${referenceNote || 'Collected by Custodian'}`);
     if (ca) {
       addCaHistory(ca.id, oldCaStatus, CashAdvanceStatus.LIQUIDATED, user.id, 'Closed (Refund Collected)');
     }
 
     (l as any).refundReference = referenceNote || 'Collected by Custodian';
+    (l as any).refundMethod = refundMethod;
     (l as any).refundCollectedAt = new Date().toISOString();
 
     sendEmail(

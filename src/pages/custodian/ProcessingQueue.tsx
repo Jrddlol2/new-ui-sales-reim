@@ -2,7 +2,7 @@ import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Card, CardHeader } from '../../components/ui/Card';
 import { Button } from '../../components/ui/Button';
-import { Input } from '../../components/ui/Input';
+import { Input, Select } from '../../components/ui/Input';
 import { StatusBadge } from '../../components/ui/StatusBadge';
 import { ClaimStatus, Claim } from '../../types';
 import { ConfirmModal } from '../../components/shared/ConfirmModal';
@@ -11,14 +11,16 @@ import { useToast } from '../../components/shared/ToastContext';
 
 export function ProcessingQueue() {
   const navigate = useNavigate();
-  const { claims, users, lineItems, currentUser, updateClaimStatus } = useAppContext();
+  const { claims, users, lineItems, currentUser, updateClaimStatus, paymentMethods } = useAppContext();
   const { addToast } = useToast();
 
   const [filter, setFilter] = useState('All');
   const [activeModal, setActiveModal] = useState<'markReady' | 'release' | 'closeLiq' | null>(null);
   const [selectedClaim, setSelectedClaim] = useState<Claim | null>(null);
   const [releaseCode, setReleaseCode] = useState('');
+  const [paymentMethod, setPaymentMethod] = useState('');
   const [paymentRef, setPaymentRef] = useState('');
+  const [refundMethod, setRefundMethod] = useState('');
   const [refundRef, setRefundRef] = useState('');
   const [error, setError] = useState('');
   const [isSubmitting, setIsSubmitting] = useState(false);
@@ -41,7 +43,9 @@ export function ProcessingQueue() {
   const handleAction = (claim: Claim, action: 'markReady' | 'release' | 'closeLiq') => {
     setSelectedClaim(claim);
     setReleaseCode('');
+    setPaymentMethod('');
     setPaymentRef('');
+    setRefundMethod('');
     setRefundRef('');
     setError('');
     setActiveModal(action);
@@ -59,6 +63,18 @@ export function ProcessingQueue() {
         return;
       }
     }
+    if (activeModal === 'markReady' && !paymentMethod) {
+      setError('Select a payment method.');
+      return;
+    }
+    if (activeModal === 'release' && !paymentMethod) {
+      setError('Select a release method.');
+      return;
+    }
+    if (activeModal === 'closeLiq' && !refundMethod) {
+      setError('Select a refund method.');
+      return;
+    }
 
     let newStatus: string = selectedClaim.status;
     let toastMsg = '';
@@ -68,16 +84,17 @@ export function ProcessingQueue() {
       case 'markReady':
         newStatus = ClaimStatus.READY_FOR_CLAIM;
         toastMsg = 'Claim marked ready for payout.';
+        updates = { paymentMethod };
         break;
       case 'release':
         newStatus = ClaimStatus.RELEASED;
         toastMsg = 'Cash advance released successfully.';
-        updates = { releaseReference: paymentRef || undefined };
+        updates = { releaseReference: paymentRef || undefined, paymentMethod };
         break;
       case 'closeLiq':
         newStatus = ClaimStatus.CLOSED;
         toastMsg = 'Liquidation closed.';
-        updates = { releaseReference: refundRef || undefined };
+        updates = { releaseReference: refundRef || undefined, paymentMethod: refundMethod };
         break;
     }
 
@@ -264,6 +281,13 @@ export function ProcessingQueue() {
                 <span className="font-mono-data font-bold text-on-surface">${selectedClaim.total.toFixed(2)}</span>
               </div>
               <div>
+                <label className="block text-label-md text-on-surface mb-1">Payment Method <span className="text-error">*</span></label>
+                <Select value={paymentMethod} onChange={e => { setPaymentMethod(e.target.value); setError(''); }} disabled={isSubmitting}>
+                  <option value="">Select a payment method...</option>
+                  {paymentMethods.map(m => <option key={m} value={m}>{m}</option>)}
+                </Select>
+              </div>
+              <div>
                 <label className="block text-label-md text-on-surface mb-1">Release Code</label>
                 <input
                   type="text"
@@ -291,8 +315,21 @@ export function ProcessingQueue() {
         confirmLabel={isSubmitting ? "Releasing..." : "Confirm Release"}
         disabled={isSubmitting}
       >
-        <p className="mb-4 text-body-md text-on-surface-variant">Enter the payment reference or check number for this release.</p>
-        <Input type="text" placeholder="Reference Number" value={paymentRef} onChange={e => setPaymentRef(e.target.value)} />
+        <p className="mb-4 text-body-md text-on-surface-variant">Select how these funds are being released and enter a reference number.</p>
+        <div className="space-y-4">
+          <div>
+            <label className="block text-label-md text-on-surface mb-1">Release Method <span className="text-error">*</span></label>
+            <Select value={paymentMethod} onChange={e => { setPaymentMethod(e.target.value); setError(''); }} disabled={isSubmitting}>
+              <option value="">Select a release method...</option>
+              {paymentMethods.map(m => <option key={m} value={m}>{m}</option>)}
+            </Select>
+          </div>
+          <div>
+            <label className="block text-label-md text-on-surface mb-1">Reference Number</label>
+            <Input type="text" placeholder="Reference Number" value={paymentRef} onChange={e => setPaymentRef(e.target.value)} disabled={isSubmitting} />
+          </div>
+          {error && <p className="text-error text-body-sm flex items-center"><span className="material-symbols-outlined text-[16px] mr-1">error</span>{error}</p>}
+        </div>
       </ConfirmModal>
 
       <ConfirmModal
@@ -304,7 +341,20 @@ export function ProcessingQueue() {
         disabled={isSubmitting}
       >
         <p className="mb-4 text-body-md text-on-surface-variant">Confirm the refund of {selectedClaim ? `$${Math.abs(selectedClaim.varianceAmount || 0).toFixed(2)}` : ''} has been physically collected from the requestor, then close this liquidation.</p>
-        <Input type="text" placeholder="Reference note (optional)" value={refundRef} onChange={e => setRefundRef(e.target.value)} />
+        <div className="space-y-4">
+          <div>
+            <label className="block text-label-md text-on-surface mb-1">Refund Method <span className="text-error">*</span></label>
+            <Select value={refundMethod} onChange={e => { setRefundMethod(e.target.value); setError(''); }} disabled={isSubmitting}>
+              <option value="">Select how the refund was collected...</option>
+              {paymentMethods.map(m => <option key={m} value={m}>{m}</option>)}
+            </Select>
+          </div>
+          <div>
+            <label className="block text-label-md text-on-surface mb-1">Reference Note (Optional)</label>
+            <Input type="text" placeholder="Reference note (optional)" value={refundRef} onChange={e => setRefundRef(e.target.value)} disabled={isSubmitting} />
+          </div>
+          {error && <p className="text-error text-body-sm flex items-center"><span className="material-symbols-outlined text-[16px] mr-1">error</span>{error}</p>}
+        </div>
       </ConfirmModal>
     </div>
   );
