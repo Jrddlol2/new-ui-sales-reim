@@ -2014,7 +2014,7 @@ You'll receive another email as soon as ${approverName} makes a decision.`
       timestamp: new Date().toISOString()
     });
     
-    addHistory(claim.id, oldStatus, newStatus, user.id);
+    addHistory(claim.id, oldStatus, newStatus, user.id, comment || undefined);
     
     const claimNumber = claim.claim_number || `REIM-${claim.id.substring(0,6)}`;
 

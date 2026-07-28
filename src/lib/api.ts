@@ -706,6 +706,58 @@ export async function submitClaimFlow(input: SubmitClaimInput) {
   });
 }
 
+export interface ResubmitClaimInput {
+  claimId: string;
+  momId: string;
+  lineItems: DraftLineItem[];
+  remarks?: string;
+}
+
+/**
+ * Revise & Resubmit — a Returned Reimbursement re-enters the approval queue
+ * via PUT /api/claims/:id/resubmit. The server requires the MOM this claim
+ * already carries (re-linking a different one is possible but out of scope
+ * here) and re-derives category/total from the edited line items, same as
+ * a fresh submission's receipt-then-claim ordering.
+ */
+export async function resubmitClaimFlow(input: ResubmitClaimInput) {
+  const { claimId, momId, lineItems, remarks } = input;
+
+  let uploaded: DraftLineItem[];
+  try {
+    uploaded = await Promise.all(
+      lineItems.map(async (li) => {
+        if (li.receiptFile) {
+          const { url } = await uploadFile(li.receiptFile);
+          return { ...li, receiptUrl: url };
+        }
+        return li;
+      })
+    );
+  } catch {
+    throw new Error('Could not upload one or more receipts.');
+  }
+
+  const missing = uploaded.findIndex((li) => !li.receiptUrl);
+  if (missing !== -1) {
+    throw new Error(`Expense row ${missing + 1} needs a receipt attached before you can resubmit.`);
+  }
+
+  return apiFetch(`/api/claims/${claimId}/resubmit`, {
+    method: 'PUT',
+    body: JSON.stringify({
+      mom_id: momId,
+      remarks: remarks || '',
+      line_items: uploaded.map((li) => ({
+        category: li.category,
+        amount: Number(li.amount) || 0,
+        receipt_url: li.receiptUrl,
+        or_number: li.orNumber || '',
+      })),
+    }),
+  });
+}
+
 export interface SubmitCashAdvanceInput {
   amount: number;
   purpose: string;

@@ -8,7 +8,7 @@ import { ApproverActionButtons } from '../../components/shared/ApproverActionBut
 import { CustodianActionButtons } from '../../components/shared/CustodianActionButtons';
 import { useAppContext } from '../../components/AppContext';
 import { useToast } from '../../components/shared/ToastContext';
-import { confirmReceipt, uploadUrl } from '../../lib/api';
+import { confirmReceipt, uploadUrl, resubmitClaimFlow, DraftLineItem } from '../../lib/api';
 import { UserRole, ClaimStatus, ExpenseLineItem } from '../../types';
 import { formatMoney } from '../../lib/money';
 
@@ -22,6 +22,9 @@ export function ClaimDetail() {
   const [receiptCode, setReceiptCode] = useState('');
   const [receiptError, setReceiptError] = useState('');
   const [submittingReceipt, setSubmittingReceipt] = useState(false);
+  const [revising, setRevising] = useState(false);
+  const [reviseLineItems, setReviseLineItems] = useState<DraftLineItem[]>([]);
+  const [submittingRevision, setSubmittingRevision] = useState(false);
 
   const claim = claims.find(c => c.id === id) || claims[0];
   const items = lineItems.filter(li => li.claimId === claim.id);
@@ -41,6 +44,45 @@ export function ClaimDetail() {
     (claim.status === ClaimStatus.PROCESSING || claim.status === ClaimStatus.APPROVED || claim.status === ClaimStatus.REVIEWED);
   // Only the requestor closes the loop, by quoting the code the custodian issued.
   const canConfirmReceipt = currentUser.id === claim.requestorId && claim.status === ClaimStatus.READY_FOR_CLAIM;
+  // Returned is a Reimbursement-only status (PUT /api/claims/:id/resubmit is
+  // specific to the `claims` table — Cash Advances/Liquidations use their own
+  // ReturnedForRevision flow with different routes).
+  const canResubmit = currentUser.id === claim.requestorId && claim.status === ClaimStatus.RETURNED && claim.type === 'Reimbursement';
+
+  const openRevise = () => {
+    setReviseLineItems(items.map(li => ({
+      category: li.category,
+      amount: li.amount,
+      vendor: li.vendor,
+      businessPurpose: li.businessPurpose,
+      expenseDate: li.expenseDate,
+      paymentMethod: li.paymentMethod,
+      receiptUrl: li.receiptUrl,
+    })));
+    setRevising(true);
+  };
+
+  const handleResubmit = async () => {
+    if (reviseLineItems.length === 0) {
+      addToast('Add at least one expense line item.', 'error');
+      return;
+    }
+    if (!mom) {
+      addToast('This claim has no Minutes of Meeting to resubmit against.', 'error');
+      return;
+    }
+    setSubmittingRevision(true);
+    try {
+      await resubmitClaimFlow({ claimId: claim.id, momId: mom.id, lineItems: reviseLineItems, remarks: claim.purpose });
+      await refresh();
+      addToast('Claim revised and resubmitted for approval.', 'success');
+      setRevising(false);
+    } catch (err: any) {
+      addToast(err?.message || 'Could not resubmit the claim.', 'error');
+    } finally {
+      setSubmittingRevision(false);
+    }
+  };
 
   const handleConfirmReceipt = async () => {
     if (!receiptCode.trim()) {
@@ -84,6 +126,11 @@ export function ClaimDetail() {
           {canConfirmReceipt && (
             <Button className="gap-2" onClick={() => { setReceiptCode(''); setReceiptError(''); setConfirmingReceipt(true); }}>
               <span className="material-symbols-outlined text-[18px]">check_circle</span> Confirm Receipt
+            </Button>
+          )}
+          {canResubmit && (
+            <Button className="gap-2" onClick={openRevise}>
+              <span className="material-symbols-outlined text-[18px]">edit_note</span> Revise &amp; Resubmit
             </Button>
           )}
         </div>
@@ -376,6 +423,132 @@ export function ClaimDetail() {
                 <Button className="gap-2" onClick={handleConfirmReceipt} disabled={submittingReceipt}>
                   {submittingReceipt ? <span className="material-symbols-outlined animate-spin text-[18px]">sync</span> : null}
                   Confirm &amp; Complete
+                </Button>
+              </div>
+            </div>
+          </div>
+        </Portal>
+      )}
+
+      {/* Revise & Resubmit Modal — returned Reimbursements re-enter approval here */}
+      {revising && (
+        <Portal>
+          <div className="fixed inset-0 bg-black/50 backdrop-blur-sm z-50 flex items-center justify-center p-4 animate-in fade-in">
+            <div className="bg-surface-container-lowest rounded-xl max-w-3xl w-full p-6 shadow-2xl space-y-4 max-h-[90vh] overflow-y-auto">
+              <div className="flex justify-between items-center border-b border-outline-variant pb-3">
+                <h3 className="font-headline-sm text-on-surface">Revise &amp; Resubmit {claim.ref}</h3>
+                <button onClick={() => setRevising(false)} className="text-outline hover:text-on-surface">
+                  <span className="material-symbols-outlined">close</span>
+                </button>
+              </div>
+
+              {history[0]?.comment && (
+                <div className="p-3 bg-error-container/20 border border-error/20 rounded-lg">
+                  <p className="text-body-sm font-medium text-error mb-1">Approver's note:</p>
+                  <p className="text-body-sm text-on-surface-variant italic">"{history[0].comment}"</p>
+                </div>
+              )}
+
+              <div className="overflow-x-auto">
+                <table className="w-full text-left min-w-[700px]">
+                  <thead className="bg-brand-table-header text-on-surface-variant font-label-sm uppercase tracking-wider">
+                    <tr>
+                      <th className="px-3 py-2">Category</th>
+                      <th className="px-3 py-2">Vendor</th>
+                      <th className="px-3 py-2">Purpose</th>
+                      <th className="px-3 py-2 text-right">Amount</th>
+                      <th className="px-3 py-2">Receipt</th>
+                      <th className="px-3 py-2 w-10"></th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-brand-border">
+                    {reviseLineItems.map((item, idx) => (
+                      <tr key={idx}>
+                        <td className="px-3 py-2">
+                          <select
+                            className="w-full py-1 px-2 text-xs border border-outline-variant rounded"
+                            value={item.category || ''}
+                            onChange={e => setReviseLineItems(p => p.map((li, i) => i === idx ? { ...li, category: e.target.value } : li))}
+                          >
+                            <option value="">Select Category</option>
+                            <option>Meals</option>
+                            <option>Travel</option>
+                            <option>Supplies</option>
+                            <option>Lodging</option>
+                            <option>Transportation</option>
+                            <option>Utilities</option>
+                            <option>Entertainment</option>
+                          </select>
+                        </td>
+                        <td className="px-3 py-2">
+                          <input
+                            className="w-full py-1 px-2 text-xs border border-outline-variant rounded"
+                            value={item.vendor || ''}
+                            onChange={e => setReviseLineItems(p => p.map((li, i) => i === idx ? { ...li, vendor: e.target.value } : li))}
+                          />
+                        </td>
+                        <td className="px-3 py-2">
+                          <input
+                            className="w-full py-1 px-2 text-xs border border-outline-variant rounded"
+                            value={item.businessPurpose || ''}
+                            onChange={e => setReviseLineItems(p => p.map((li, i) => i === idx ? { ...li, businessPurpose: e.target.value } : li))}
+                          />
+                        </td>
+                        <td className="px-3 py-2">
+                          <input
+                            type="number"
+                            className="w-full py-1 px-2 text-xs text-right font-mono-data border border-outline-variant rounded"
+                            value={item.amount || ''}
+                            onChange={e => setReviseLineItems(p => p.map((li, i) => i === idx ? { ...li, amount: Number(e.target.value) } : li))}
+                          />
+                        </td>
+                        <td className="px-3 py-2">
+                          {item.receiptFile ? (
+                            <span className="text-xs text-primary truncate max-w-[100px] inline-block">{item.receiptFile.name}</span>
+                          ) : item.receiptUrl ? (
+                            <span className="text-xs text-outline">Existing receipt</span>
+                          ) : (
+                            <span className="text-xs text-error">No receipt</span>
+                          )}
+                          <label className="ml-2 cursor-pointer text-xs text-primary hover:underline">
+                            {item.receiptUrl || item.receiptFile ? 'Replace' : 'Attach'}
+                            <input
+                              type="file"
+                              accept="image/*,.pdf"
+                              className="hidden"
+                              onChange={e => {
+                                const file = e.target.files?.[0];
+                                if (!file) return;
+                                setReviseLineItems(p => p.map((li, i) => i === idx ? { ...li, receiptFile: file, receiptUrl: URL.createObjectURL(file) } : li));
+                              }}
+                            />
+                          </label>
+                        </td>
+                        <td className="px-3 py-2">
+                          <button onClick={() => setReviseLineItems(p => p.filter((_, i) => i !== idx))} className="text-error hover:opacity-70">
+                            <span className="material-symbols-outlined text-[18px]">delete_outline</span>
+                          </button>
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+
+              <Button
+                size="sm"
+                variant="outline"
+                className="gap-2"
+                onClick={() => setReviseLineItems(p => [...p, { expenseDate: new Date().toISOString().split('T')[0], amount: 0, paymentMethod: 'Personal Card', vendor: '', category: 'Meals' }])}
+              >
+                <span className="material-symbols-outlined text-[16px]">add</span> Add Row
+              </Button>
+
+              <div className="flex justify-end gap-2 pt-2 border-t border-outline-variant">
+                <Button variant="ghost" onClick={() => setRevising(false)} disabled={submittingRevision}>Cancel</Button>
+                <Button className="gap-2" onClick={handleResubmit} disabled={submittingRevision}>
+                  {submittingRevision ? <span className="material-symbols-outlined animate-spin text-[18px]">sync</span> : null}
+                  Resubmit for Approval
                 </Button>
               </div>
             </div>
