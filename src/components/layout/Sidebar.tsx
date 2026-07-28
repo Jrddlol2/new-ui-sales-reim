@@ -1,13 +1,23 @@
 import { NavLink } from 'react-router-dom';
 import { cn } from '../ui/Button';
 import { useAppContext } from '../AppContext';
-import { UserRole } from '../../types';
+import { ClaimStatus, UserRole } from '../../types';
 
-const getNavItems = (role: UserRole) => {
-  const common = [
+/** badgeKey ties a nav item to one of the live counts computed in Sidebar()
+ *  below — new items on a queue, or unread mail, previously had no on-screen
+ *  indicator at all (you had to open the page to find out). */
+interface NavItem {
+  label: string;
+  icon: string;
+  path: string;
+  badgeKey?: 'notifications' | 'approvals' | 'processing' | 'readyToClaim';
+}
+
+const getNavItems = (role: UserRole): NavItem[] => {
+  const common: NavItem[] = [
     { label: 'Dashboard', icon: 'dashboard', path: '/' },
   ];
-  
+
   if (role === UserRole.REQUESTOR) {
     return [
       ...common,
@@ -17,40 +27,40 @@ const getNavItems = (role: UserRole) => {
       { label: 'MOMs', icon: 'meeting_room', path: '/moms' },
       { label: 'Receipt Archive', icon: 'receipt_long', path: '/receipts' },
       { label: 'Calendar', icon: 'calendar_month', path: '/calendar' },
-      { label: 'Notifications', icon: 'notifications', path: '/notifications' },
+      { label: 'Notifications', icon: 'notifications', path: '/notifications', badgeKey: 'notifications' },
       { label: 'Support', icon: 'help', path: '/support' },
       { label: 'Settings', icon: 'settings', path: '/settings' },
     ];
   }
-  
+
   if (role === UserRole.APPROVER) {
     return [
       ...common,
       { label: 'My Requests', icon: 'description', path: '/claims' },
       { label: 'Payouts', icon: 'key', path: '/payouts' },
       { label: 'Submit Claim', icon: 'add_circle', path: '/claims/new' },
-      { label: 'Approvals', icon: 'assignment_turned_in', path: '/approvals' },
+      { label: 'Approvals', icon: 'assignment_turned_in', path: '/approvals', badgeKey: 'approvals' },
       { label: 'MOMs', icon: 'meeting_room', path: '/moms' },
       { label: 'Receipt Archive', icon: 'receipt_long', path: '/receipts' },
       { label: 'Calendar', icon: 'calendar_month', path: '/calendar' },
-      { label: 'Notifications', icon: 'notifications', path: '/notifications' },
+      { label: 'Notifications', icon: 'notifications', path: '/notifications', badgeKey: 'notifications' },
       { label: 'Support', icon: 'help', path: '/support' },
       { label: 'Settings', icon: 'settings', path: '/settings' },
     ];
   }
-  
+
   if (role === UserRole.CUSTODIAN) {
     return [
       ...common,
-      { label: 'Processing Queue', icon: 'payments', path: '/disbursements' },
-      { label: 'Ready to Claim', icon: 'outbox', path: '/ready-to-claim' },
+      { label: 'Processing Queue', icon: 'payments', path: '/disbursements', badgeKey: 'processing' },
+      { label: 'Ready to Claim', icon: 'outbox', path: '/ready-to-claim', badgeKey: 'readyToClaim' },
       { label: 'Transaction History', icon: 'history', path: '/transactions' },
-      { label: 'Notifications', icon: 'notifications', path: '/notifications' },
+      { label: 'Notifications', icon: 'notifications', path: '/notifications', badgeKey: 'notifications' },
       { label: 'Support', icon: 'help', path: '/support' },
       { label: 'Settings', icon: 'settings', path: '/settings' },
     ];
   }
-  
+
   if (role === UserRole.ADMIN) {
     return [
       ...common,
@@ -62,12 +72,12 @@ const getNavItems = (role: UserRole) => {
       { label: 'Admin Reporting', icon: 'bar_chart', path: '/admin/reports' },
       { label: 'Audit Log', icon: 'gavel', path: '/admin/audit' },
       { label: 'System Emails', icon: 'mail', path: '/admin/emails' },
-      { label: 'Notifications', icon: 'notifications', path: '/notifications' },
+      { label: 'Notifications', icon: 'notifications', path: '/notifications', badgeKey: 'notifications' },
       { label: 'Support', icon: 'help', path: '/support' },
       { label: 'Settings', icon: 'settings', path: '/settings' },
     ];
   }
-  
+
   return common;
 };
 
@@ -79,8 +89,18 @@ interface SidebarProps {
 }
 
 export function Sidebar({ isOpen, onClose, isCollapsed = false, onToggleCollapse }: SidebarProps) {
-  const { currentUser } = useAppContext();
+  const { currentUser, claims, emails } = useAppContext();
   const navItems = getNavItems(currentUser.role);
+
+  // `claims` already arrives pre-scoped to this user's role from the server
+  // (an approver's queue, a custodian's queue, etc.) — see AppContext/api.ts —
+  // so these are just status counts over what the user can already see.
+  const badgeCounts: Record<string, number> = {
+    notifications: emails.filter(e => e.recipientId === currentUser.id && !e.read).length,
+    approvals: claims.filter(c => c.status === ClaimStatus.PENDING_APPROVAL || c.status === ClaimStatus.SUBMITTED).length,
+    processing: claims.filter(c => c.status === ClaimStatus.APPROVED || c.status === ClaimStatus.PROCESSING).length,
+    readyToClaim: claims.filter(c => c.status === ClaimStatus.READY_FOR_CLAIM).length,
+  };
 
   return (
     <>
@@ -179,34 +199,47 @@ export function Sidebar({ isOpen, onClose, isCollapsed = false, onToggleCollapse
         
         {/* Navigation List */}
         <nav className="flex-1 space-y-1 overflow-y-auto px-0">
-          {navItems.map((item) => (
-            <NavLink
-              key={item.path}
-              to={item.path}
-              onClick={() => onClose()}
-              title={item.label}
-              className={({ isActive }) => cn(
-                "flex items-center py-3 group transition-all duration-200 ease-in-out focus:ring-2 focus:ring-white focus:ring-inset outline-none",
-                isCollapsed ? "lg:justify-center lg:px-0" : "",
-                isActive 
-                  ? "text-white font-bold border-l-4 border-white bg-black/15 shadow-inner" + (isCollapsed ? " pl-4 lg:pl-0" : " pl-4")
-                  : "text-white/80 font-medium hover:bg-white/15 hover:text-white" + (isCollapsed ? " pl-5 lg:pl-0" : " pl-5")
-              )}
-            >
-              <span className={cn(
-                "material-symbols-outlined transition-all",
-                isCollapsed ? "lg:mr-0 text-[22px]" : "mr-3 text-[24px]"
-              )}>
-                {item.icon}
-              </span>
-              <span className={cn(
-                "font-body-base text-body-base whitespace-nowrap transition-all duration-200",
-                isCollapsed ? "lg:hidden" : "block"
-              )}>
-                {item.label}
-              </span>
-            </NavLink>
-          ))}
+          {navItems.map((item) => {
+            const count = item.badgeKey ? badgeCounts[item.badgeKey] || 0 : 0;
+            return (
+              <NavLink
+                key={item.path}
+                to={item.path}
+                onClick={() => onClose()}
+                title={count > 0 ? `${item.label} (${count})` : item.label}
+                className={({ isActive }) => cn(
+                  "flex items-center py-3 group transition-all duration-200 ease-in-out focus:ring-2 focus:ring-white focus:ring-inset outline-none",
+                  isCollapsed ? "lg:justify-center lg:px-0" : "",
+                  isActive
+                    ? "text-white font-bold border-l-4 border-white bg-black/15 shadow-inner" + (isCollapsed ? " pl-4 lg:pl-0" : " pl-4")
+                    : "text-white/80 font-medium hover:bg-white/15 hover:text-white" + (isCollapsed ? " pl-5 lg:pl-0" : " pl-5")
+                )}
+              >
+                <span className="relative flex-shrink-0">
+                  <span className={cn(
+                    "material-symbols-outlined transition-all",
+                    isCollapsed ? "lg:mr-0 text-[22px]" : "mr-3 text-[24px]"
+                  )}>
+                    {item.icon}
+                  </span>
+                  {count > 0 && isCollapsed && (
+                    <span className="hidden lg:flex absolute -top-1 -right-0.5 min-w-[8px] h-2 w-2 rounded-full bg-error" />
+                  )}
+                </span>
+                <span className={cn(
+                  "font-body-base text-body-base whitespace-nowrap transition-all duration-200 flex-1",
+                  isCollapsed ? "lg:hidden" : "flex items-center justify-between"
+                )}>
+                  {item.label}
+                  {count > 0 && (
+                    <span className="ml-2 min-w-[20px] h-5 px-1.5 rounded-full bg-white/90 text-[#1A5BDB] text-[11px] font-bold flex items-center justify-center">
+                      {count > 99 ? '99+' : count}
+                    </span>
+                  )}
+                </span>
+              </NavLink>
+            );
+          })}
         </nav>
         
         {/* User Profile Card Footer */}

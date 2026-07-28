@@ -78,7 +78,11 @@ export function Topbar({ onMenuClick, isCollapsed = false }: TopbarProps) {
               onClick={() => setShowNotifications(!showNotifications)}
             >
               <span className="material-symbols-outlined">notifications</span>
-              {unreadCount > 0 && <span className="absolute top-1.5 right-1.5 w-2 h-2 bg-error rounded-full"></span>}
+              {unreadCount > 0 && (
+                <span className="absolute top-0.5 right-0.5 min-w-[16px] h-4 px-1 rounded-full bg-error text-white text-[10px] font-bold leading-4 text-center">
+                  {unreadCount > 99 ? '99+' : unreadCount}
+                </span>
+              )}
             </button>
             {showNotifications && (
               <div className="absolute right-0 mt-2 w-80 bg-surface border border-outline-variant rounded-lg shadow-lg overflow-hidden flex flex-col max-h-96">
