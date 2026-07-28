@@ -1,7 +1,7 @@
 import { NavLink } from 'react-router-dom';
 import { cn } from '../ui/Button';
 import { useAppContext } from '../AppContext';
-import { ClaimStatus, UserRole } from '../../types';
+import { ClaimStatus, DelegationStatus, UserRole } from '../../types';
 
 /** badgeKey ties a nav item to one of the live counts computed in Sidebar()
  *  below — new items on a queue, or unread mail, previously had no on-screen
@@ -10,7 +10,7 @@ interface NavItem {
   label: string;
   icon: string;
   path: string;
-  badgeKey?: 'notifications' | 'approvals' | 'processing' | 'readyToClaim';
+  badgeKey?: 'notifications' | 'approvals' | 'processing' | 'readyToClaim' | 'delegation';
 }
 
 const getNavItems = (role: UserRole): NavItem[] => {
@@ -45,7 +45,7 @@ const getNavItems = (role: UserRole): NavItem[] => {
       { label: 'Calendar', icon: 'calendar_month', path: '/calendar' },
       { label: 'Notifications', icon: 'notifications', path: '/notifications', badgeKey: 'notifications' },
       { label: 'Support', icon: 'help', path: '/support' },
-      { label: 'Settings', icon: 'settings', path: '/settings' },
+      { label: 'Settings', icon: 'settings', path: '/settings', badgeKey: 'delegation' },
     ];
   }
 
@@ -89,7 +89,7 @@ interface SidebarProps {
 }
 
 export function Sidebar({ isOpen, onClose, isCollapsed = false, onToggleCollapse }: SidebarProps) {
-  const { currentUser, claims, emails } = useAppContext();
+  const { currentUser, claims, emails, delegations } = useAppContext();
   const navItems = getNavItems(currentUser.role);
 
   // `claims` already arrives pre-scoped to this user's role from the server
@@ -100,6 +100,10 @@ export function Sidebar({ isOpen, onClose, isCollapsed = false, onToggleCollapse
     approvals: claims.filter(c => c.status === ClaimStatus.PENDING_APPROVAL || c.status === ClaimStatus.SUBMITTED).length,
     processing: claims.filter(c => c.status === ClaimStatus.APPROVED || c.status === ClaimStatus.PROCESSING).length,
     readyToClaim: claims.filter(c => c.status === ClaimStatus.READY_FOR_CLAIM).length,
+    // Incoming delegation requests waiting on this user to accept/decline —
+    // previously buried in a Settings tab with zero indication anything
+    // needed attention.
+    delegation: delegations.filter(d => d.delegate_id === currentUser.id && d.status === DelegationStatus.PENDING).length,
   };
 
   return (
@@ -201,10 +205,11 @@ export function Sidebar({ isOpen, onClose, isCollapsed = false, onToggleCollapse
         <nav className="flex-1 space-y-1 overflow-y-auto px-0">
           {navItems.map((item) => {
             const count = item.badgeKey ? badgeCounts[item.badgeKey] || 0 : 0;
+            const to = item.badgeKey === 'delegation' && count > 0 ? `${item.path}?tab=delegation` : item.path;
             return (
               <NavLink
                 key={item.path}
-                to={item.path}
+                to={to}
                 onClick={() => onClose()}
                 title={count > 0 ? `${item.label} (${count})` : item.label}
                 className={({ isActive }) => cn(

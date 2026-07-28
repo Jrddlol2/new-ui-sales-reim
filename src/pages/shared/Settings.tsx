@@ -1,4 +1,5 @@
 import { useState } from 'react';
+import { useSearchParams } from 'react-router-dom';
 import { Card, CardHeader, CardContent } from '../../components/ui/Card';
 import { Button } from '../../components/ui/Button';
 import { Input, Select, Label } from '../../components/ui/Input';
@@ -182,7 +183,8 @@ function DelegationPanel() {
 export function Settings() {
   const { addToast } = useToast();
   const { currentUser, resetData } = useAppContext();
-  const [activeTab, setActiveTab] = useState('profile');
+  const [searchParams] = useSearchParams();
+  const [activeTab, setActiveTab] = useState(searchParams.get('tab') || 'profile');
 
   const [notifyPrefs, setNotifyPrefs] = useState<Record<string, { inApp: boolean, email: boolean }>>({
     submitted: { inApp: true, email: true },
