@@ -3230,9 +3230,16 @@ You'll receive another email as soon as a decision is made.`
     const newApproverName = users.find(u => u.id === new_approver_id)?.name || new_approver_id;
     
     claim.current_approver_id = new_approver_id;
+    // An admin reassign resolves whatever org-change staleness prompted it,
+    // same as a peer-to-peer transfer does — otherwise the claim keeps
+    // showing up in the stale/fallback list with a now-outdated reason.
+    claim.approver_stale_since = null;
+    claim.pending_transfer_to = null;
+    claim.approver_stale_reason = undefined;
+    claim.escalated_to_admin = false;
     claim.updated_at = new Date().toISOString();
-    
-    
+
+
     statusHistories.push({
       id: uuidv4(),
       claim_id: claim.id,

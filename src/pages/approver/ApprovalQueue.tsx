@@ -1,4 +1,4 @@
-import { useState, useMemo } from 'react';
+import { useState, useMemo, MouseEvent } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Card, CardHeader, CardContent } from '../../components/ui/Card';
 import { Button } from '../../components/ui/Button';
@@ -7,6 +7,8 @@ import { ClaimStatus } from '../../types';
 import { formatMoney } from '../../lib/money';
 import { ApproverActionButtons } from '../../components/shared/ApproverActionButtons';
 import { useAppContext } from '../../components/AppContext';
+import { useToast } from '../../components/shared/ToastContext';
+import { transferApprover } from '../../lib/api';
 
 function getAgingInfo(submittedAt: string | undefined, createdAt: string) {
   const start = new Date(submittedAt || createdAt).getTime();
@@ -19,9 +21,25 @@ function getAgingInfo(submittedAt: string | undefined, createdAt: string) {
 
 export function ApprovalQueue() {
   const navigate = useNavigate();
-  const { claims, users, currentUser, delegations } = useAppContext();
+  const { claims, users, currentUser, delegations, refresh } = useAppContext();
+  const { addToast } = useToast();
 
   const [filter, setFilter] = useState('All');
+  const [transferringId, setTransferringId] = useState<string | null>(null);
+
+  const handleTransfer = async (claimId: string, e: MouseEvent) => {
+    e.stopPropagation();
+    setTransferringId(claimId);
+    try {
+      await transferApprover(claimId);
+      await refresh();
+      addToast('Claim transferred to the new approver.', 'success');
+    } catch (err: any) {
+      addToast(err?.message || 'Could not transfer this claim.', 'error');
+    } finally {
+      setTransferringId(null);
+    }
+  };
 
   const pendingClaims = useMemo(() => claims.filter(c => {
     // Reimbursement claims land on 'Pending Approval'; Cash Advances and
@@ -35,6 +53,14 @@ export function ApprovalQueue() {
     // Can never approve own claims
     if (c.requestorId === currentUser.id) return false;
     
+    // The claim's own routing (claim.approverId, set server-side by
+    // current_approver_id) is the source of truth — not the requestor's
+    // *live* reportsTo. An org change updates reportsTo immediately but
+    // deliberately leaves claim.approverId on the old approver until they
+    // transfer it away (that's the whole point of the stale-approval flow
+    // below); re-deriving eligibility from live reportsTo would make a
+    // stale claim vanish from the one queue it needs to be actionable in.
+    const isCurrentApprover = c.approverId === currentUser.id;
     const isDirectReport = requestor.reportsTo === currentUser.id;
     const isDelegate = delegations.some(d =>
       d.delegate_id === currentUser.id &&
@@ -42,7 +68,7 @@ export function ApprovalQueue() {
       d.status === 'Active'
     );
 
-    return isDirectReport || isDelegate;
+    return isCurrentApprover || isDirectReport || isDelegate;
   }), [claims, currentUser, users, delegations]);
 
   let displayedClaims = pendingClaims;
@@ -155,6 +181,21 @@ export function ApprovalQueue() {
                     </td>
                     <td className="px-6 py-4 text-right">
                       <div className="flex justify-end items-center gap-2">
+                        {claim.approverStaleSince && claim.pendingTransferTo && (
+                          <Button
+                            size="sm"
+                            variant="outline"
+                            className="border-tertiary text-tertiary gap-1"
+                            disabled={transferringId === claim.id}
+                            onClick={(e) => handleTransfer(claim.id, e)}
+                            title={`Transfer to ${users.find(u => u.id === claim.pendingTransferTo)?.name || 'suggested approver'}`}
+                          >
+                            {transferringId === claim.id
+                              ? <span className="material-symbols-outlined animate-spin text-[16px]">sync</span>
+                              : <span className="material-symbols-outlined text-[16px]">swap_horiz</span>}
+                            Transfer
+                          </Button>
+                        )}
                         <ApproverActionButtons claim={claim} />
                         <span className="material-symbols-outlined text-outline ml-2 group-hover:text-primary transition-colors">chevron_right</span>
                       </div>

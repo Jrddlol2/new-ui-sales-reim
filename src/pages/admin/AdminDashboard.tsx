@@ -3,9 +3,12 @@ import { useNavigate } from 'react-router-dom';
 import { Card, CardHeader } from '../../components/ui/Card';
 import { KPICard } from '../../components/ui/KPICard';
 import { Button } from '../../components/ui/Button';
+import { Select, Input, Label } from '../../components/ui/Input';
+import { Portal } from '../../components/shared/Portal';
 import { useAppContext } from '../../components/AppContext';
-import { ClaimStatus, SupportRequestStatus } from '../../types';
-import { fetchAuditHistory } from '../../lib/api';
+import { useToast } from '../../components/shared/ToastContext';
+import { UserRole, ClaimStatus, SupportRequestStatus } from '../../types';
+import { fetchAuditHistory, runFallbackCheck, reassignApprover } from '../../lib/api';
 
 interface AuditEntry {
   id: string;
@@ -42,10 +45,16 @@ function describeEntry(e: AuditEntry): string {
 
 export function AdminDashboard() {
   const navigate = useNavigate();
-  const { users, claims, masterData, supportRequests } = useAppContext();
+  const { users, claims, masterData, supportRequests, refresh } = useAppContext();
+  const { addToast } = useToast();
 
   const [recentAudit, setRecentAudit] = useState<AuditEntry[]>([]);
   const [auditError, setAuditError] = useState('');
+  const [runningFallback, setRunningFallback] = useState(false);
+  const [reassigningClaimId, setReassigningClaimId] = useState<string | null>(null);
+  const [reassignTarget, setReassignTarget] = useState('');
+  const [reassignReason, setReassignReason] = useState('');
+  const [submittingReassign, setSubmittingReassign] = useState(false);
 
   useEffect(() => {
     let alive = true;
@@ -73,6 +82,54 @@ export function AdminDashboard() {
     claims.forEach(c => { counts[c.status] = (counts[c.status] || 0) + 1; });
     return Object.entries(counts).sort((a, b) => b[1] - a[1]).slice(0, 6);
   }, [claims]);
+
+  // Org-change fallback (docs/hierarchy-sync-design.md §5): a claim whose
+  // approver went stale and nobody transferred it within the fallback window
+  // needs an admin to step in. This is normally a cron; there's no scheduler
+  // in this prototype, so the sweep is a manual trigger.
+  const staleClaims = useMemo(
+    () => claims.filter(c => c.approverStaleSince && !c.escalatedToAdmin),
+    [claims]
+  );
+  const approvers = useMemo(() => users.filter(u => u.role === UserRole.APPROVER), [users]);
+
+  const handleRunFallbackCheck = async () => {
+    setRunningFallback(true);
+    try {
+      const result = await runFallbackCheck(true);
+      await refresh();
+      addToast(`Fallback check ran — ${result.escalatedCount} claim(s) escalated.`, 'success');
+    } catch (err: any) {
+      addToast(err?.message || 'Could not run the fallback check.', 'error');
+    } finally {
+      setRunningFallback(false);
+    }
+  };
+
+  const openReassign = (claimId: string) => {
+    setReassigningClaimId(claimId);
+    setReassignTarget('');
+    setReassignReason('');
+  };
+
+  const handleReassign = async () => {
+    if (!reassigningClaimId) return;
+    if (!reassignTarget || !reassignReason.trim()) {
+      addToast('Pick a new approver and give a reason.', 'error');
+      return;
+    }
+    setSubmittingReassign(true);
+    try {
+      await reassignApprover(reassigningClaimId, reassignTarget, reassignReason.trim());
+      await refresh();
+      addToast('Claim reassigned.', 'success');
+      setReassigningClaimId(null);
+    } catch (err: any) {
+      addToast(err?.message || 'Could not reassign this claim.', 'error');
+    } finally {
+      setSubmittingReassign(false);
+    }
+  };
 
   return (
     <div className="space-y-8 animate-in fade-in duration-500">
@@ -158,6 +215,72 @@ export function AdminDashboard() {
           </div>
         </Card>
       </div>
+
+      <Card className="p-6">
+        <div className="flex justify-between items-center mb-6">
+          <div>
+            <h4 className="font-headline-md text-on-surface">Stale Approvals — Org-Change Fallback</h4>
+            <p className="text-body-sm text-outline mt-1">Claims whose approver went stale after an org-chart change and haven't been transferred yet.</p>
+          </div>
+          <Button variant="outline" size="sm" className="gap-2" onClick={handleRunFallbackCheck} disabled={runningFallback}>
+            {runningFallback ? <span className="material-symbols-outlined animate-spin text-[16px]">sync</span> : <span className="material-symbols-outlined text-[16px]">bolt</span>}
+            Run Fallback Check
+          </Button>
+        </div>
+        {staleClaims.length === 0 ? (
+          <p className="text-body-sm text-outline">No unresolved stale approvals right now.</p>
+        ) : (
+          <div className="space-y-2">
+            {staleClaims.map(c => {
+              const currentApprover = users.find(u => u.id === c.approverId);
+              return (
+                <div key={c.id} className="flex items-center justify-between p-3 bg-tertiary-container/10 border border-tertiary/20 rounded-lg">
+                  <div>
+                    <p className="font-label-md text-on-surface cursor-pointer hover:text-primary" onClick={() => navigate(`/claims/${c.id}`)}>{c.ref}</p>
+                    <p className="text-body-sm text-outline">Routed to {currentApprover?.name || '(unknown)'} — {c.approverStaleReason || 'org change'}</p>
+                  </div>
+                  <Button size="sm" variant="outline" className="gap-1.5" onClick={() => openReassign(c.id)}>
+                    <span className="material-symbols-outlined text-[16px]">manage_accounts</span> Reassign
+                  </Button>
+                </div>
+              );
+            })}
+          </div>
+        )}
+      </Card>
+
+      {reassigningClaimId && (
+        <Portal>
+          <div className="fixed inset-0 bg-black/50 backdrop-blur-sm z-50 flex items-center justify-center p-4 animate-in fade-in">
+            <div className="bg-surface-container-lowest rounded-xl max-w-md w-full p-6 shadow-2xl space-y-4">
+              <div className="flex justify-between items-center border-b border-outline-variant pb-3">
+                <h3 className="font-headline-sm text-on-surface">Reassign Approver</h3>
+                <button onClick={() => setReassigningClaimId(null)} className="text-outline hover:text-on-surface">
+                  <span className="material-symbols-outlined">close</span>
+                </button>
+              </div>
+              <div>
+                <Label required>New Approver</Label>
+                <Select value={reassignTarget} onChange={e => setReassignTarget(e.target.value)}>
+                  <option value="">-- Select --</option>
+                  {approvers.map(a => <option key={a.id} value={a.id}>{a.name}</option>)}
+                </Select>
+              </div>
+              <div>
+                <Label required>Reason</Label>
+                <Input value={reassignReason} onChange={e => setReassignReason(e.target.value)} placeholder="Why is this being reassigned?" />
+              </div>
+              <div className="flex justify-end gap-2 pt-2 border-t border-outline-variant">
+                <Button variant="ghost" onClick={() => setReassigningClaimId(null)} disabled={submittingReassign}>Cancel</Button>
+                <Button onClick={handleReassign} disabled={submittingReassign} className="gap-2">
+                  {submittingReassign ? <span className="material-symbols-outlined animate-spin text-[16px]">sync</span> : null}
+                  Reassign
+                </Button>
+              </div>
+            </div>
+          </div>
+        </Portal>
+      )}
     </div>
   );
 }

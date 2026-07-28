@@ -560,6 +560,31 @@ export async function decideOnClaim(
 }
 
 /**
+ * Approver (or Admin): hand a claim off to another approver after an
+ * org-chart change flags it stale. `to` defaults server-side to the claim's
+ * own `pending_transfer_to` suggestion if omitted.
+ */
+export const transferApprover = (claimId: string, to?: string) =>
+  apiFetch(`/api/claims/${claimId}/transfer-approver`, {
+    method: 'POST',
+    body: JSON.stringify(to ? { to } : {}),
+  });
+
+/** Admin: force-move a claim to a different approver outside the normal org-change flow. */
+export const reassignApprover = (claimId: string, newApproverId: string, reason: string) =>
+  apiFetch(`/api/claims/${claimId}/reassign`, {
+    method: 'PUT',
+    body: JSON.stringify({ new_approver_id: newApproverId, reason }),
+  });
+
+/** Admin: manually trigger the fallback-escalation sweep (normally a cron). */
+export const runFallbackCheck = (force = false) =>
+  apiFetch('/api/admin/run-fallback-check', {
+    method: 'POST',
+    body: JSON.stringify({ force }),
+  });
+
+/**
  * Custodian: issue (or regenerate) the release code the requestor quotes at
  * payout. The server mints one itself if `code` is omitted.
  */
