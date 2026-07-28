@@ -1,6 +1,7 @@
 ﻿import express from 'express';
 import path from 'path';
 import fs from 'fs';
+import os from 'os';
 import multer from 'multer';
 // NOTE: `vite` is imported dynamically inside the dev-only branch of createApp()
 // so it never loads in a production/serverless bundle (Vercel), where it isn't used.
@@ -331,9 +332,21 @@ const applyHierarchySyncDefaults = (userList: User[]) => {
 const users: User[] = buildDefaultUsers();
 applyHierarchySyncDefaults(users);
 
-const uploadDir = path.join(process.cwd(), 'uploads');
-if (!fs.existsSync(uploadDir)) {
-  fs.mkdirSync(uploadDir, { recursive: true });
+// Uploads need a *writable* directory. Locally that's `<cwd>/uploads`, but on a
+// serverless host (Vercel) the deployment filesystem is read-only — only the OS
+// temp dir (/tmp) is writable. Creating the dir at module load must therefore
+// never throw, or importing this module crashes the whole function (every route
+// then 500s). NOTE: on serverless, /tmp is per-instance and ephemeral, so
+// uploads don't persist across cold starts — that's the object-storage work in
+// PRODUCTION-PASS.md #4.
+const uploadDir = process.env.UPLOAD_DIR
+  || (process.env.VERCEL ? path.join(os.tmpdir(), 'uploads') : path.join(process.cwd(), 'uploads'));
+try {
+  if (!fs.existsSync(uploadDir)) {
+    fs.mkdirSync(uploadDir, { recursive: true });
+  }
+} catch (err) {
+  console.error(`Could not create upload dir at ${uploadDir}:`, err);
 }
 const storage = multer.diskStorage({
   destination: (req, file, cb) => {
