@@ -26,6 +26,20 @@ export const CURRENT_USER_KEY = 'mockUserId';
 export const getCurrentUserId = () => localStorage.getItem(CURRENT_USER_KEY) || 'u15';
 export const setCurrentUserId = (id: string) => localStorage.setItem(CURRENT_USER_KEY, id);
 
+/**
+ * Distinct from CURRENT_USER_KEY (which always has a default so the API
+ * layer never has no identity to send). This one tracks whether *this
+ * browser* went through the explicit Login screen — see App.tsx's
+ * production-mode gate. Dev builds skip this entirely and go straight in.
+ */
+const SESSION_KEY = 'hasLoggedIn';
+export const isLoggedIn = () => localStorage.getItem(SESSION_KEY) === 'true';
+export const login = (userId: string) => {
+  setCurrentUserId(userId);
+  localStorage.setItem(SESSION_KEY, 'true');
+};
+export const logout = () => localStorage.removeItem(SESSION_KEY);
+
 export interface ApiError extends Error {
   status?: number;
   body?: any;

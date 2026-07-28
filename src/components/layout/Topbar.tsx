@@ -1,6 +1,7 @@
 import { useState, useRef, useEffect } from 'react';
 import { useAppContext } from '../AppContext';
 import { useNavigate } from 'react-router-dom';
+import { logout } from '../../lib/api';
 
 interface TopbarProps {
   onMenuClick: () => void;
@@ -54,21 +55,35 @@ export function Topbar({ onMenuClick, isCollapsed = false }: TopbarProps) {
       </div>
       
       <div className="flex items-center gap-6 ml-4">
-        {/* Prototype Role Switcher */}
-        <div className="hidden sm:flex items-center gap-2">
-          <select 
-            className="text-xs bg-surface-container border border-outline-variant rounded p-1 font-mono-data focus:ring-2 focus:ring-primary outline-none text-on-surface"
-            value={currentUser.id}
-            onChange={(e) => {
-              const u = users.find(user => user.id === e.target.value);
-              if (u) setCurrentUser(u);
-            }}
+        {/* Prototype Role Switcher — dev-only. PRODUCTION-PASS P0 #2: this is
+            a one-click privilege escalation and must never ship to a real
+            build; the Login screen (App.tsx) is what a built app uses instead. */}
+        {import.meta.env.DEV && (
+          <div className="hidden sm:flex items-center gap-2">
+            <select
+              className="text-xs bg-surface-container border border-outline-variant rounded p-1 font-mono-data focus:ring-2 focus:ring-primary outline-none text-on-surface"
+              value={currentUser.id}
+              onChange={(e) => {
+                const u = users.find(user => user.id === e.target.value);
+                if (u) setCurrentUser(u);
+              }}
+            >
+              {users.map(u => (
+                <option key={u.id} value={u.id}>{u.role} ({u.name.split(' ')[0]})</option>
+              ))}
+            </select>
+          </div>
+        )}
+        {!import.meta.env.DEV && (
+          <button
+            aria-label="Sign out"
+            title={`Signed in as ${currentUser.name}`}
+            className="hidden sm:flex items-center gap-1.5 text-xs text-on-surface-variant hover:text-primary transition-colors"
+            onClick={() => { logout(); window.location.reload(); }}
           >
-            {users.map(u => (
-              <option key={u.id} value={u.id}>{u.role} ({u.name.split(' ')[0]})</option>
-            ))}
-          </select>
-        </div>
+            <span className="material-symbols-outlined text-[18px]">logout</span> Sign out
+          </button>
+        )}
 
         <div className="flex items-center gap-2">
           <div className="relative" ref={dropdownRef}>

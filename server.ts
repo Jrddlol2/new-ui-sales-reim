@@ -1,4 +1,6 @@
 ﻿import express from 'express';
+import helmet from 'helmet';
+import cors from 'cors';
 import path from 'path';
 import fs from 'fs';
 import os from 'os';
@@ -390,8 +392,30 @@ const upload = multer({
 
 export async function createApp() {
   const app = express();
+  app.disable('x-powered-by');
 
-  app.use(express.json());
+  // --- P1 #7 HTTP security middleware (prototype-level pass) -------------
+  // contentSecurityPolicy is off: the SPA loads a Google Fonts CDN stylesheet
+  // and Vite's dev-mode inline HMR scripts, and a real CSP needs to be tuned
+  // against the actual asset list — not something to guess at here. The
+  // other helmet defaults (X-Frame-Options, X-Content-Type-Options, HSTS,
+  // etc.) apply as-is.
+  app.use(helmet({ contentSecurityPolicy: false }));
+
+  // Same-origin by default (the Express app serves its own built frontend on
+  // this port — no cross-origin caller has a legitimate reason to hit these
+  // routes). Set ALLOWED_ORIGINS to a comma-separated list to allow specific
+  // external origins (e.g. a separately-hosted frontend) if that changes.
+  const allowedOrigins = (process.env.ALLOWED_ORIGINS || '').split(',').map(o => o.trim()).filter(Boolean);
+  app.use(cors({
+    origin: allowedOrigins.length > 0 ? allowedOrigins : false,
+    credentials: true,
+  }));
+
+  // JSON bodies only carry text fields — files go through multer's own
+  // 10 MB cap on /api/upload. 1 MB is generous headroom for the largest
+  // legitimate payload (a claim with many line items).
+  app.use(express.json({ limit: '1mb' }));
 
   // --- INTERIM upload access gate -------------------------------------
   // TEMPORARY until Phase 2 (real authentication/sessions). Previously this

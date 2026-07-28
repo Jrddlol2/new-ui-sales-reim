@@ -3,10 +3,13 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
+import { useState } from 'react';
 import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
 import { AppProvider, useAppContext } from './components/AppContext';
 import { ToastProvider } from './components/shared/ToastContext';
 import { Layout } from './components/layout/Layout';
+import { Login } from './pages/Login';
+import { isLoggedIn } from './lib/api';
 import { Dashboard } from './pages/Dashboard';
 import { ClaimsList } from './pages/shared/ClaimsList';
 import { Payouts } from './pages/shared/Payouts';
@@ -87,6 +90,17 @@ function RoleBasedRouter() {
 }
 
 export default function App() {
+  // Dev mode keeps the fast Topbar role-switcher and skips this entirely —
+  // that convenience is exactly what PRODUCTION-PASS P0 #2 says must NOT
+  // ship to a real build. A production build requires picking an identity
+  // here first (see Login.tsx for what this prototype-level gate is and
+  // isn't).
+  const [loggedIn, setLoggedIn] = useState(() => import.meta.env.DEV || isLoggedIn());
+
+  if (!loggedIn) {
+    return <Login onLoggedIn={() => setLoggedIn(true)} />;
+  }
+
   return (
     <AppProvider>
       <ToastProvider>
