@@ -156,6 +156,45 @@ export function SubmitClaim() {
     setMomData(p => ({ ...p, fileName: file.name }));
   };
 
+  /** Dev-only convenience: the server rejects any expense line without a
+   *  receipt, which normally means attaching a real file by hand on every
+   *  manual test run. Fetch the app's own placeholder image and reuse it as
+   *  a mock receipt so a full claim can be filled and submitted in one click.
+   *  Gated by import.meta.env.DEV — never available in a production build. */
+  const [autofilling, setAutofilling] = useState(false);
+  const handleAutofillTestData = async () => {
+    setAutofilling(true);
+    try {
+      const res = await fetch('/receipt_placeholder.png');
+      const blob = await res.blob();
+      const mockReceipt = (name: string) => new File([blob], name, { type: blob.type || 'image/png' });
+
+      if (claimType === 'Cash Advance') {
+        setCashAdvanceAmount(5000);
+        setCashAdvancePurpose('Test cash advance — autofilled for QA');
+      } else if (claimType === 'Liquidation') {
+        if (!cashAdvanceId && myCashAdvances.length > 0) setCashAdvanceId(myCashAdvances[0].id);
+        setLineItemsLocal([
+          { expenseDate: new Date().toISOString().split('T')[0], amount: 1200, paymentMethod: 'Personal Card', vendor: 'Test Vendor', category: 'Travel', businessPurpose: 'Test liquidation line — autofilled for QA', receiptFile: mockReceipt('receipt_1.png'), receiptUrl: URL.createObjectURL(mockReceipt('receipt_1.png')) },
+        ]);
+      } else {
+        setLineItemsLocal([
+          { expenseDate: new Date().toISOString().split('T')[0], amount: 850, paymentMethod: 'Personal Card', vendor: 'Test Vendor', category: 'Meals', businessPurpose: 'Test expense line — autofilled for QA', receiptFile: mockReceipt('receipt_1.png'), receiptUrl: URL.createObjectURL(mockReceipt('receipt_1.png')) },
+        ]);
+        if (companies.length > 0) applyCompanyDefaults(companies[0].name);
+        setMomCore(p => ({ ...p, purpose: p.purpose || 'Test meeting — autofilled for QA', discussion: p.discussion || 'Discussed test scenario for QA purposes.' }));
+        const inThreeDays = new Date(Date.now() + 3 * 24 * 60 * 60 * 1000);
+        setMeetingDate(d => d || inThreeDays.toISOString().split('T')[0]);
+        setMeetingTime(t => t || '14:00');
+      }
+      addToast('Filled with test data (dev only).', 'success');
+    } catch {
+      addToast('Could not load the placeholder receipt for autofill.', 'error');
+    } finally {
+      setAutofilling(false);
+    }
+  };
+
   /** Shared by Save Draft and Submit â€” same three server writes, different finality. */
   /**
    * Each claim type owns a genuinely different server-side flow (AUDIT #1-2:
@@ -296,11 +335,19 @@ export function SubmitClaim() {
           <Card>
             <CardHeader>
               <h3 className="font-headline-md text-on-surface">{claimType} Details</h3>
+              <div className="flex items-center gap-2">
+                {import.meta.env.DEV && (
+                  <Button size="sm" variant="outline" className="gap-2" onClick={handleAutofillTestData} disabled={autofilling}>
+                    <span className="material-symbols-outlined text-[16px]">bolt</span>
+                    {autofilling ? 'Filling…' : 'Autofill Test Data'}
+                  </Button>
+                )}
               {claimType !== 'Cash Advance' && (
                 <Button size="sm" className="gap-2" onClick={() => setLineItemsLocal(p => [...p, { expenseDate: new Date().toISOString().split('T')[0], amount: 0, paymentMethod: 'Personal Card', vendor: '', category: 'Meals' }])}>
                   <span className="material-symbols-outlined text-[18px]">add</span> Add Row
                 </Button>
               )}
+              </div>
             </CardHeader>
             <CardContent>
               {claimType === 'Liquidation' && (
