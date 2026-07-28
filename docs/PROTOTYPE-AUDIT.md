@@ -28,6 +28,13 @@ observability. These are known and intentional for a prototype, but they are
 real and load‑bearing — nothing below the "demo" line should be treated as safe
 for real employees or finance data yet.
 
+**Target: this will connect to Office 365 accounts.** That decision reshapes the
+production tier — auth becomes Microsoft Entra ID (Azure AD) sign‑in, email
+becomes Microsoft Graph, and the org‑chart the app already simulates maps onto
+Entra's real manager hierarchy. See
+[Target integration: Office 365 / Microsoft Entra ID](#target-integration-office-365--microsoft-entra-id)
+for the backend prep this needs; it drives Phase 3 below.
+
 The gap between those two grades is the entire backlog below.
 
 ### Scorecard
@@ -176,7 +183,8 @@ Most are fixed; these three survived every pass and should go next.*
 17. **No real authentication.** `X‑User‑Id` header trust: anyone can be anyone,
     including Admin, by changing one string. The Wave C login gate adds friction
     but not security (still no password, still header trust underneath).
-    `PRODUCTION‑PASS #1`, `P0`.
+    `PRODUCTION‑PASS #1`, `P0`. **→ Target fix is Office 365 / Entra ID sign‑in —
+    see the [O365 section](#target-integration-office-365--microsoft-entra-id).**
 
 18. **File storage is local disk with weak access control.** Uploads land in
     `uploads/` and the gate only checks *that* a user is logged in, not that
@@ -195,7 +203,9 @@ Most are fixed; these three survived every pass and should go next.*
     probe. `PRODUCTION‑PASS #19`.
 
 22. **Mock email transport.** `console.log('--- MOCK EMAIL TRANSPORT ---')` — the
-    templates are production‑quality, the delivery is not. `PRODUCTION‑PASS #10`.
+    templates are production‑quality (already SharePoint/Outlook‑styled), the
+    delivery is not. `PRODUCTION‑PASS #10`. **→ Target fix is Microsoft Graph
+    `sendMail` — see the [O365 section](#target-integration-office-365--microsoft-entra-id).**
 
 ### ⚪ Polish / nice‑to‑haves
 
@@ -229,6 +239,94 @@ A concrete "delete list" — everything here is safe to drop and reduces noise:
 
 ---
 
+## Target integration: Office 365 / Microsoft Entra ID
+
+**Decision:** this system will run against the organization's **Office 365 /
+Microsoft Entra ID (Azure AD)** accounts. This is the intended home for several
+of the production‑blocker items above — it's not a separate feature bolted on,
+it's *how* auth, directory, and email should be done for real. The good news:
+the backend was **designed with this in mind** (the email templates are already
+SharePoint/Outlook‑styled, and the org‑change / stale‑approver system is a
+faithful simulation of an Entra ID "hierarchy sync"), so this is wiring a real
+provider into slots that already exist — not a redesign.
+
+### What "connect to O365" means concretely
+
+Four distinct Microsoft integrations, in dependency order:
+
+**1. Authentication — Entra ID sign‑in (OIDC / OAuth 2.0)** *(replaces finding #17)*
+- Register the app in **Entra ID** (App Registration): get a **Tenant ID**,
+  **Client ID**, and a **client secret or certificate**; configure the SPA/web
+  **redirect URIs**.
+- Add a real sign‑in flow (MSAL — `@azure/msal-browser` on the front end and/or
+  `@azure/msal-node` server‑side for the auth‑code flow). This **replaces the
+  Wave C `Login.tsx` mock gate** and the `X‑User‑Id` header entirely.
+- Server‑side: **validate the Entra JWT** on every request (signature, issuer,
+  audience, tenant), then derive the user from the validated token's `oid` —
+  never from a client‑set header. This is the actual fix for `getUser()`.
+- Scopes to start: `openid profile email User.Read`.
+
+**2. Directory / user + manager sync — Microsoft Graph** *(feeds the existing hierarchy model)*
+- Pull users, job titles, departments, and — critically — the **manager
+  relationship** from Graph (`GET /users`, `GET /users/{id}/manager`). The app's
+  `reports_to` field **is** the Entra `manager` edge; the whole approval‑routing
+  and stale‑approver system already assumes this shape.
+- Run it as a periodic sync (or Graph **delta query** / change notifications) so
+  an HR/org change in Entra flows into the app — which is exactly the
+  "org‑change → stale approver → transfer/reassign" flow already built and
+  verified. Right now that flow is triggered by a manual `PUT /api/users/:id`;
+  with Graph it becomes automatic.
+- Graph permission: `User.Read.All` (or `Directory.Read.All`), app‑level.
+
+**3. Email / notifications — Microsoft Graph `sendMail`** *(replaces finding #22)*
+- Swap the mock `console.log` transport for Graph `POST /me/sendMail` (delegated)
+  or `POST /users/{id}/sendMail` (application). The existing per‑recipient
+  templates drop straight in; keep the in‑app outbox as the audit copy.
+- Add retry/queueing and a bounce/suppression story.
+- Graph permission: `Mail.Send`.
+
+**4. (Optional) Calendar — Microsoft Graph events** *(enhances the review‑meeting loop)*
+- The review‑meeting confirm/decline/reschedule loop (just wired) could create
+  and update **real Outlook calendar events** (`POST /me/events`) so a confirmed
+  review meeting actually lands on the approver's Outlook calendar.
+- Graph permission: `Calendars.ReadWrite`.
+
+### Backend prep to do *now* (before the O365 credentials exist)
+
+These make the eventual switch a drop‑in rather than a rewrite, and can be done
+against the current in‑memory prototype:
+
+- [ ] **Stop assuming `u1`‑style internal IDs are the identity.** Add an
+      `entra_object_id` (Entra `oid`) and `user_principal_name` (UPN/email) field
+      to the user model now, and make `getUser()` resolve on those — so when real
+      tokens arrive, the join key already exists. (The seed can populate fake
+      `oid`s meanwhile.)
+- [ ] **Isolate auth behind one seam.** Today `getUser(req)` reads a header in
+      ~40 route handlers. Keep that single function as the *only* place identity
+      is derived, so replacing "read `X‑User‑Id`" with "validate Entra JWT" is a
+      one‑function change, not a 40‑site edit. (It's already centralized — keep it
+      that way; don't let new routes read the header directly.)
+- [ ] **Isolate email behind `sendEmail()`.** It already is — keep all delivery
+      going through that one function so swapping console→Graph is one change.
+- [ ] **Add the config/secrets story** (`PRODUCTION‑PASS #5`): `TENANT_ID`,
+      `CLIENT_ID`, `CLIENT_SECRET`/cert path, `GRAPH_SCOPES`, redirect URIs — all
+      from env/secret manager, documented in `.env.example`, fail‑fast on startup
+      if a required one is missing. (`ALLOWED_ORIGINS` from Wave C is the first
+      entry in this story.)
+- [ ] **Pin the manager edge as the routing source of truth.** Confirm no code
+      path routes approvals on anything except `reports_to` + active delegation
+      (the old design's hard rule) — because `reports_to` will soon be
+      authoritative, synced from Entra.
+
+### Sequencing note
+
+Auth (#1) is the keystone and should land **with or right after** the persistent
+database (blocker #16) — a real login is meaningless if the user records it
+authenticates against evaporate on restart. Directory sync (#2) and Graph email
+(#3) can follow independently. Calendar (#4) is optional polish.
+
+---
+
 ## Prioritized plan
 
 Sequenced so each phase is independently shippable and the app visibly improves.
@@ -253,12 +351,20 @@ Sequenced so each phase is independently shippable and the app visibly improves.
       the core loop; run in CI — #19.
 - [ ] Route‑level code‑splitting; self‑host fonts — #13, #14.
 
-### Phase 3 — Production foundation (the real work, multi‑session)
-- [ ] Persistent database + data‑access layer behind the existing routes — #16.
-- [ ] Real auth (SSO/OIDC, signed sessions); retire the role switcher for good — #17.
+### Phase 3 — Production foundation + Office 365 (the real work, multi‑session)
+*Anchored by the [O365 target](#target-integration-office-365--microsoft-entra-id).*
+- [ ] **Backend prep now** (identity fields, one auth seam, one email seam, config
+      story) so the O365 switch is a drop‑in — see that section's checklist.
+- [ ] Persistent database + data‑access layer behind the existing routes — #16
+      *(lands with auth; a login is meaningless if users evaporate on restart).*
+- [ ] **Entra ID sign‑in (OIDC/MSAL)** replacing `X‑User‑Id` + the mock login;
+      retire the role switcher for good — #17.
+- [ ] **Microsoft Graph directory sync** (users + manager hierarchy → `reports_to`),
+      feeding the existing org‑change/stale‑approver flow automatically.
+- [ ] **Microsoft Graph `sendMail`** replacing the mock transport — #22.
 - [ ] Object storage with per‑resource ACLs + signed URLs — #18.
-- [ ] Real email transport (SMTP / MS Graph) — #22.
 - [ ] Observability: structured logs, error tracker, `/healthz` — #21.
+- [ ] *(Optional)* Outlook calendar events for confirmed review meetings.
 - [ ] Optimistic/targeted refetch + live counts — #23, #24.
 
 ### Phase 4 — Product depth (as desired)
