@@ -55,20 +55,20 @@ let claimCounter = 123;
 // so seeding and the real directory share one source of truth: any client
 // name touched by seeding or by a real MOM submission funnels through
 // getOrCreateCompany() and ends up here exactly once.
-const SEED_COMPANIES: { name: string; industry: string; notes: string }[] = [
+const SEED_COMPANIES: { name: string; industry: string; notes: string; address?: string; contact_person?: string; contact_email?: string }[] = [
   // Sales
-  { name: 'SM Prime Holdings', industry: 'Real Estate & Retail', notes: 'Enterprise account — mall and residential developments, decade-long relationship.' },
-  { name: 'PLDT Inc', industry: 'Telecommunications', notes: 'National telco carrier; ongoing infrastructure and connectivity contracts.' },
-  { name: 'Jollibee Foods Corp', industry: 'Food & Beverage', notes: 'Fast-food franchise group; recurring catering and supply agreements.' },
-  { name: 'Bank of the Philippine Islands', industry: 'Banking & Finance', notes: 'Long-standing corporate banking client, multiple branches engaged.' },
-  { name: 'Globe Telecom', industry: 'Telecommunications', notes: 'Competing telco account, handled by a separate sales pod.' },
-  { name: 'San Miguel Corporation', industry: 'Conglomerate', notes: 'Diversified food, beverage, and infrastructure holding company.' },
-  { name: 'Meralco', industry: 'Utilities', notes: 'Power distribution utility; regulated-sector account, longer sales cycles.' },
-  { name: 'BDO Unibank', industry: 'Banking & Finance', notes: 'Largest local bank by assets; high-value, high-touch relationship.' },
+  { name: 'SM Prime Holdings', industry: 'Real Estate & Retail', notes: 'Enterprise account — mall and residential developments, decade-long relationship.', address: 'SM Corporate Offices, Bldg. A, SM Mall of Asia Complex, Pasay City', contact_person: 'Cristina Reyes', contact_email: 'c.reyes@smprime.com' },
+  { name: 'PLDT Inc', industry: 'Telecommunications', notes: 'National telco carrier; ongoing infrastructure and connectivity contracts.', address: 'Ramon Cojuangco Building, Makati Ave, Makati City', contact_person: 'Miguel Torres', contact_email: 'm.torres@pldt.com.ph' },
+  { name: 'Jollibee Foods Corp', industry: 'Food & Beverage', notes: 'Fast-food franchise group; recurring catering and supply agreements.', address: 'Jollibee Plaza, F. Ortigas Jr. Road, Ortigas Center, Pasig City', contact_person: 'Anna Villanueva', contact_email: 'a.villanueva@jollibee.com.ph' },
+  { name: 'Bank of the Philippine Islands', industry: 'Banking & Finance', notes: 'Long-standing corporate banking client, multiple branches engaged.', address: 'BPI Building, Ayala Ave cor. Paseo de Roxas, Makati City', contact_person: 'Ramon Aquino', contact_email: 'r.aquino@bpi.com.ph' },
+  { name: 'Globe Telecom', industry: 'Telecommunications', notes: 'Competing telco account, handled by a separate sales pod.', address: 'The Globe Tower, 32nd St cor 7th Ave, BGC, Taguig City', contact_person: 'Katrina Dizon', contact_email: 'k.dizon@globe.com.ph' },
+  { name: 'San Miguel Corporation', industry: 'Conglomerate', notes: 'Diversified food, beverage, and infrastructure holding company.', address: 'San Miguel Properties Centre, St. Francis St, Mandaluyong City', contact_person: 'Ferdinand Cruz', contact_email: 'f.cruz@sanmiguel.com.ph' },
+  { name: 'Meralco', industry: 'Utilities', notes: 'Power distribution utility; regulated-sector account, longer sales cycles.', address: 'Lopez Building, Ortigas Ave, Pasig City', contact_person: 'Josefina Ramos', contact_email: 'j.ramos@meralco.com.ph' },
+  { name: 'BDO Unibank', industry: 'Banking & Finance', notes: 'Largest local bank by assets; high-value, high-touch relationship.', address: 'BDO Corporate Center, 7899 Makati Ave, Makati City', contact_person: 'Patricia Lim', contact_email: 'p.lim@bdo.com.ph' },
   // Marketing
-  { name: 'Creative Agency', industry: 'Advertising & Marketing', notes: 'Retained creative and production partner for campaign assets.' },
-  { name: 'Partner Promo Group', industry: 'Marketing & Events', notes: 'Handles promotional campaigns and in-store activations.' },
-  { name: 'Media Corp', industry: 'Media & Broadcasting', notes: 'Ad placement and sponsorship partner across TV and digital.' },
+  { name: 'Creative Agency', industry: 'Advertising & Marketing', notes: 'Retained creative and production partner for campaign assets.', address: '88 Corporate Center, Sedeño St, Salcedo Village, Makati City', contact_person: 'Diego Santos', contact_email: 'diego@creativeagency.ph' },
+  { name: 'Partner Promo Group', industry: 'Marketing & Events', notes: 'Handles promotional campaigns and in-store activations.', address: 'Unit 12B, One Corporate Centre, Ortigas Center, Pasig City', contact_person: 'Bianca Fernando', contact_email: 'bianca@partnerpromo.ph' },
+  { name: 'Media Corp', industry: 'Media & Broadcasting', notes: 'Ad placement and sponsorship partner across TV and digital.', address: 'Media Corp Building, EDSA cor Mother Ignacia Ave, Quezon City', contact_person: 'Leo Manalo', contact_email: 'leo.manalo@mediacorp.ph' },
   // Engineering
   { name: 'Internal Operations', industry: 'Internal', notes: 'Cross-department engineering support requests, not an external client.' },
   { name: 'Beta Testing Corp', industry: 'Software QA', notes: 'External beta/UAT partner for pre-release builds.' },
@@ -95,7 +95,10 @@ const SEED_COMPANIES: { name: string; industry: string; notes: string }[] = [
 ];
 
 const buildInitialCompanies = (): Company[] =>
-  SEED_COMPANIES.map(c => ({ id: uuidv4(), name: c.name, industry: c.industry, notes: c.notes }));
+  SEED_COMPANIES.map(c => ({
+    id: uuidv4(), name: c.name, industry: c.industry, notes: c.notes,
+    address: c.address, contact_person: c.contact_person, contact_email: c.contact_email,
+  }));
 
 let companies: Company[] = buildInitialCompanies();
 

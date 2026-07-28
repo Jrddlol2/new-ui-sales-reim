@@ -13,7 +13,7 @@ import { submitClaimFlow, submitCashAdvanceFlow, submitLiquidationFlow, DraftLin
 
 export function SubmitClaim() {
   const navigate = useNavigate();
-  const { currentUser, fieldDefinitions, users, claims, refresh } = useAppContext();
+  const { currentUser, fieldDefinitions, users, claims, companies, refresh } = useAppContext();
   const { addToast } = useToast();
 
   const [claimType, setClaimType] = useState<'Reimbursement' | 'Cash Advance' | 'Liquidation'>('Reimbursement');
@@ -29,6 +29,10 @@ export function SubmitClaim() {
   const [momCore, setMomCore] = useState({
     client: '', purpose: '', location: '', contactPerson: '', contactPersonEmail: '', discussion: '',
   });
+  // A known Company Directory entry can pre-fill the meeting details below
+  // (mirrors the original system's "Company Auto-Fill" MOM behavior). Default
+  // to the picker when companies exist; fall back to free text otherwise.
+  const [clientMode, setClientMode] = useState<'select' | 'custom'>('select');
   const [momFile, setMomFile] = useState<File | undefined>();
   const [cashAdvanceId, setCashAdvanceId] = useState<string>('');
   const [cashAdvanceAmount, setCashAdvanceAmount] = useState<number>(0);
@@ -128,6 +132,20 @@ export function SubmitClaim() {
     setLineItemsLocal(prev => prev.map((li, i) =>
       i === index ? { ...li, receiptFile: file, receiptUrl: URL.createObjectURL(file) } : li
     ));
+  };
+
+  /** Selecting a known company pre-fills Location/Contact from its directory
+   *  record — only into fields the user hasn't already typed something into. */
+  const applyCompanyDefaults = (companyName: string) => {
+    const company = companies.find(c => c.name === companyName);
+    if (!company) return;
+    setMomCore(p => ({
+      ...p,
+      client: companyName,
+      location: p.location || company.address || '',
+      contactPerson: p.contactPerson || company.contactPerson || '',
+      contactPersonEmail: p.contactPersonEmail || company.contactEmail || '',
+    }));
   };
 
   const handleFileUploadForMOM = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -470,8 +488,29 @@ export function SubmitClaim() {
                         they're rendered explicitly rather than via field defs. */}
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                       <div>
-                        <Label required>Client / Company</Label>
-                        <Input value={momCore.client} onChange={e => setMomCore(p => ({ ...p, client: e.target.value }))} placeholder="Who did you meet with?" />
+                        <div className="flex items-center justify-between">
+                          <Label required>Client / Company</Label>
+                          {companies.length > 0 && (
+                            <button
+                              type="button"
+                              className="text-[11px] text-primary font-semibold hover:underline mb-1"
+                              onClick={() => setClientMode(m => m === 'select' ? 'custom' : 'select')}
+                            >
+                              {clientMode === 'select' ? 'Type a new company' : 'Choose from directory'}
+                            </button>
+                          )}
+                        </div>
+                        {clientMode === 'select' && companies.length > 0 ? (
+                          <Select
+                            value={companies.some(c => c.name === momCore.client) ? momCore.client : ''}
+                            onChange={e => applyCompanyDefaults(e.target.value)}
+                          >
+                            <option value="">-- Select a company --</option>
+                            {companies.map(c => <option key={c.id} value={c.name}>{c.name}</option>)}
+                          </Select>
+                        ) : (
+                          <Input value={momCore.client} onChange={e => setMomCore(p => ({ ...p, client: e.target.value }))} placeholder="Who did you meet with?" />
+                        )}
                       </div>
                       <div>
                         <Label required>Purpose of Meeting</Label>
