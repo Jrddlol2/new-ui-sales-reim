@@ -19,20 +19,24 @@ export function CompanyDirectory() {
   const [name, setName] = useState('');
   const [industry, setIndustry] = useState('');
   const [notes, setNotes] = useState('');
+  const [address, setAddress] = useState('');
+  const [contactPerson, setContactPerson] = useState('');
+  const [contactEmail, setContactEmail] = useState('');
 
   const filtered = companies.filter(c =>
-    [c.name, c.industry, c.notes].some(v => (v || '').toLowerCase().includes(searchTerm.toLowerCase()))
+    [c.name, c.industry, c.notes, c.address, c.contactPerson, c.contactEmail].some(v => (v || '').toLowerCase().includes(searchTerm.toLowerCase()))
   );
 
   const openAdd = () => {
     setEditing(null);
-    setName(''); setIndustry(''); setNotes('');
+    setName(''); setIndustry(''); setNotes(''); setAddress(''); setContactPerson(''); setContactEmail('');
     setShowModal(true);
   };
 
   const openEdit = (c: Company) => {
     setEditing(c);
     setName(c.name); setIndustry(c.industry || ''); setNotes(c.notes || '');
+    setAddress(c.address || ''); setContactPerson(c.contactPerson || ''); setContactEmail(c.contactEmail || '');
     setShowModal(true);
   };
 
@@ -42,12 +46,13 @@ export function CompanyDirectory() {
       return;
     }
     setSaving(true);
+    const body = { name, industry, notes, address, contact_person: contactPerson, contact_email: contactEmail };
     try {
       if (editing) {
-        await updateCompany(editing.id, { name, industry, notes });
+        await updateCompany(editing.id, body);
         addToast(`Updated ${name}.`, 'success');
       } else {
-        await createCompany({ name, industry, notes });
+        await createCompany(body);
         addToast(`Added ${name} to the directory.`, 'success');
       }
       await refresh();
@@ -92,6 +97,9 @@ export function CompanyDirectory() {
               <tr>
                 <th className="px-6 py-4">Company Name</th>
                 <th className="px-6 py-4">Industry</th>
+                <th className="px-6 py-4">Contact Person</th>
+                <th className="px-6 py-4">Email</th>
+                <th className="px-6 py-4">Location</th>
                 <th className="px-6 py-4">Notes</th>
                 <th className="px-6 py-4 text-right">Actions</th>
               </tr>
@@ -99,7 +107,7 @@ export function CompanyDirectory() {
             <tbody className="divide-y divide-outline-variant">
               {filtered.length === 0 ? (
                 <tr>
-                  <td colSpan={4} className="px-6 py-12 text-center text-outline">
+                  <td colSpan={7} className="px-6 py-12 text-center text-outline">
                     <span className="material-symbols-outlined text-4xl mb-2 opacity-50">business</span>
                     <p className="font-label-md">{companies.length === 0 ? 'No companies yet.' : 'No companies match your search.'}</p>
                   </td>
@@ -108,7 +116,10 @@ export function CompanyDirectory() {
                 <tr key={company.id} className="hover:bg-primary-container/5 transition-colors">
                   <td className="px-6 py-4 font-bold text-on-surface">{company.name}</td>
                   <td className="px-6 py-4 text-on-surface-variant text-sm">{company.industry || '—'}</td>
-                  <td className="px-6 py-4 text-on-surface-variant text-sm max-w-[280px] truncate" title={company.notes}>{company.notes || '—'}</td>
+                  <td className="px-6 py-4 text-on-surface-variant text-sm">{company.contactPerson || '—'}</td>
+                  <td className="px-6 py-4 text-on-surface-variant text-sm">{company.contactEmail || '—'}</td>
+                  <td className="px-6 py-4 text-on-surface-variant text-sm max-w-[200px] truncate" title={company.address}>{company.address || '—'}</td>
+                  <td className="px-6 py-4 text-on-surface-variant text-sm max-w-[200px] truncate" title={company.notes}>{company.notes || '—'}</td>
                   <td className="px-6 py-4 text-right">
                     <Button variant="outline" size="sm" onClick={() => openEdit(company)}>Edit</Button>
                   </td>
@@ -138,6 +149,18 @@ export function CompanyDirectory() {
                 <div>
                   <label className="font-label-sm block mb-1">Industry</label>
                   <Input type="text" value={industry} onChange={e => setIndustry(e.target.value)} placeholder="e.g. Manufacturing" />
+                </div>
+                <div>
+                  <label className="font-label-sm block mb-1">Contact Person</label>
+                  <Input type="text" value={contactPerson} onChange={e => setContactPerson(e.target.value)} placeholder="e.g. Jane Doe" />
+                </div>
+                <div>
+                  <label className="font-label-sm block mb-1">Contact Email</label>
+                  <Input type="email" value={contactEmail} onChange={e => setContactEmail(e.target.value)} placeholder="e.g. jane@acme.com" />
+                </div>
+                <div>
+                  <label className="font-label-sm block mb-1">Location</label>
+                  <Input type="text" value={address} onChange={e => setAddress(e.target.value)} placeholder="e.g. Makati City, Philippines" />
                 </div>
                 <div>
                   <label className="font-label-sm block mb-1">Notes</label>

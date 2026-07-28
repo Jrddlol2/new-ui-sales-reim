@@ -121,15 +121,24 @@ one-click privilege escalation).
 
 ## 5. What's wired to the server vs. still mock
 
-**Fully server-backed & verified:** the core loop (submit → approve → process → ready →
-complete), Approval Queue, Delegations (full lifecycle + access control), MOMs, Calendar
-(read), Support, Master Data / Field Definitions / User Accounts / Company Directory
-admin, Audit Log, System Emails, Admin Reporting.
+> **Updated 2026-07-28** — see `docs/ROADMAP.md`'s status block for the full Phase 1 /
+> Phase 1.5 / Phase 2 / Improvements_v2 history. The paragraph below reflects current state,
+> not the original baseline.
 
-**Known gaps (see `AUDIT.md`):** Cash Advance & Liquidation *submission* still post to the
-wrong endpoint; Historical Import is simulated; the role dashboards mix real counts with
-hardcoded numbers (Admin dashboard is 100% static); several server features
-(review-meeting responses, resubmit, stale-approver transfer) aren't surfaced.
+**Fully server-backed & verified:** the core loop (submit → approve → process → ready →
+complete), Approval Queue + Claim Detail inline actions, Delegations (full lifecycle + access
+control), MOMs (list + `/moms/:id` detail with real file viewer), Receipt Archive (My/Team
+scoping for approvers), Calendar (read), Support, Master Data / Field Definitions / User
+Accounts / Company Directory admin (now with contact/email/location), Audit Log, System
+Emails, Admin Reporting, Transaction History (real per-row dates), all four dashboards (real
+KPIs, no hardcoded numbers), payment-method picker, `/payouts` page.
+
+**Known gaps (see `AUDIT.md` / `ROADMAP.md`):** Historical Import is simulated;
+review-meeting responses, resubmit, and stale-approver transfer aren't surfaced yet; Audit
+Log / System Emails still paginate client-side only (not server-side); currency still reads
+`$` instead of PHP; per-role Notifications isn't wired to `/api/outbox` yet (UI built, not
+wired — B15); **Policy Compliance tab doesn't exist** (new scope from user feedback, not yet
+designed — needs its own session, not a fold-in to existing work).
 
 **Still on generated data:** `importBatches` (no read endpoint wired). Everything else
 moved to the server.
@@ -177,8 +186,9 @@ sales-reimbursement-new-ui/
 
 ## 8. Suggested first move
 
-If picking up the work: the highest-value functional fix is routing the submit wizard by
-claim type so **Cash Advance and Liquidation actually submit** (AUDIT #1–2 — one fix). The
-highest-value production move is **real auth + removing the role switcher** (PRODUCTION
-P0 #1–2). Start from whichever lens — feature completeness or production hardening — the
-work calls for.
+The four 🔴 Broken AUDIT items (Cash Advance/Liquidation submission, Historical Import,
+Liquidation close) are long since fixed — don't start there. As of 2026-07-28, pick up
+`docs/ROADMAP.md`'s M3 (review-meeting loop, resubmit, stale-approver transfer, per-role
+notifications wiring) or scope the new **Policy Compliance tab** as its own session. The
+highest-value production move is still **real auth + removing the role switcher**
+(PRODUCTION P0 #1–2) if the work calls for a hardening lens instead of features.

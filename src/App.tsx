@@ -21,6 +21,7 @@ import { TransactionHistory } from './pages/custodian/TransactionHistory';
 import { AuditLog } from './pages/admin/AuditLog';
 import { UserAccounts } from './pages/admin/UserAccounts';
 import { MOMs } from './pages/shared/MOMs';
+import { MomDetail } from './pages/shared/MomDetail';
 import { Calendar } from './pages/shared/Calendar';
 import { Settings } from './pages/shared/Settings';
 import { Support } from './pages/shared/Support';
@@ -51,6 +52,7 @@ function RoleBasedRouter() {
         <Route path="/claims/new" element={<SubmitClaim />} />
         <Route path="/claims/:id" element={<ClaimDetail />} />
         <Route path="/moms" element={<MOMs />} />
+        <Route path="/moms/:id" element={<MomDetail />} />
         <Route path="/receipts" element={<Receipts />} />
         
         {/* Shared */}

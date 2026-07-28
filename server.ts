@@ -1019,7 +1019,8 @@ If no action is taken within ${STALE_APPROVER_FALLBACK_DAYS} days, this will be 
 
     const {
       name, industry, notes,
-      address, business_unit_id, cost_center_id, default_department_id, currency, tax_id, default_approver_id
+      address, business_unit_id, cost_center_id, default_department_id, currency, tax_id, default_approver_id,
+      contact_person, contact_email
     } = req.body;
     if (!name || !name.trim()) return res.status(400).json({ error: 'Company name is required.' });
     if (companies.some(c => c.name.toLowerCase() === name.trim().toLowerCase())) {
@@ -1028,7 +1029,8 @@ If no action is taken within ${STALE_APPROVER_FALLBACK_DAYS} days, this will be 
 
     const company: Company = {
       id: uuidv4(), name: name.trim(), industry, notes,
-      address, business_unit_id, cost_center_id, default_department_id, currency, tax_id, default_approver_id
+      address, business_unit_id, cost_center_id, default_department_id, currency, tax_id, default_approver_id,
+      contact_person, contact_email
     };
     companies.push(company);
     res.json(company);
@@ -1058,7 +1060,7 @@ If no action is taken within ${STALE_APPROVER_FALLBACK_DAYS} days, this will be 
     if (industry !== undefined) company.industry = industry;
     if (notes !== undefined) company.notes = notes;
 
-    (['address', 'business_unit_id', 'cost_center_id', 'default_department_id', 'currency', 'tax_id', 'default_approver_id'] as const)
+    (['address', 'business_unit_id', 'cost_center_id', 'default_department_id', 'currency', 'tax_id', 'default_approver_id', 'contact_person', 'contact_email'] as const)
       .forEach(field => {
         const value = req.body[field];
         if (value !== undefined && company[field] !== value) {
@@ -3382,6 +3384,13 @@ You'll receive another email as soon as a decision is made.`
     ];
     const LOCATIONS = ['Quezon City, Philippines', 'Makati City, Philippines', 'BGC, Taguig, Philippines', 'Cebu City, Philippines', 'Pasig City, Philippines'];
     const TIMES = ['09:00', '10:30', '13:00', '14:00', '15:30'];
+    // Rotation pools covering every optional field the UI (MomDetail, the
+    // dynamic field renderer) can display, so seeded records exercise those
+    // paths instead of always rendering '-' / 'None listed'.
+    const MEETING_TYPES = ['External', 'Internal', 'External', 'External', 'Internal'];
+    const ACCOUNT_TYPES = ['Enterprise Client', 'SMB Client', 'Enterprise Client', 'Strategic Partner', 'SMB Client'];
+    const CATEGORIES = ['Business Review', 'Pilot Discussion', 'Contract Renewal', 'Marketing Collaboration', 'Collections'];
+    const INTERNAL_PARTICIPANT_POOL = ['Alice Reyes', 'Bob Santos', 'Ivy Salazar', 'Grace Navarro', 'Henry Castillo'];
 
     let momCursor = 0;
     const mkMom = (requestorId: string, client: string, status: MomStatus, daysAgo: number): Mom => {
@@ -3393,6 +3402,11 @@ You'll receive another email as soon as a decision is made.`
       const [first, ...rest] = contact.split(' ');
       const last = rest[rest.length - 1] || first;
       const momDate = rDate(daysAgo);
+      // Roughly 1 in 3 minutes were uploaded as a scanned document rather
+      // than filled in via the template form - the real distribution the
+      // requestor-facing MOM step supports.
+      const isUploaded = momCursor % 3 === 0;
+      const internalParticipants = Array.from(new Set([reqUser?.name, INTERNAL_PARTICIPANT_POOL[idx]].filter((n): n is string => !!n))).join(', ');
       const mom: Mom = {
         id: uuidv4(),
         requestor_id: requestorId,
@@ -3409,7 +3423,12 @@ You'll receive another email as soon as a decision is made.`
         prepared_by: reqUser?.name || 'Requestor',
         status,
         created_at: momDate,
-        minutes_source: MinutesSource.TEMPLATE
+        minutes_source: isUploaded ? MinutesSource.UPLOADED : MinutesSource.TEMPLATE,
+        meeting_type: MEETING_TYPES[idx],
+        participants_internal: internalParticipants,
+        participants_external: `${contact}${idx % 2 === 0 ? ', ' + CONTACTS[(idx + 1) % 5] : ''}`,
+        custom_fields: { type_of_account: ACCOUNT_TYPES[idx], category: CATEGORIES[idx] },
+        ...(isUploaded ? { file_url: '/mom_attachment_placeholder.png', file_name: `${actualClient.replace(/[^a-zA-Z0-9]/g, '_')}_minutes.png` } : {}),
       };
       getOrCreateCompany(actualClient);
       moms.push(mom);

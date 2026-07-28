@@ -1,45 +1,46 @@
-import { MOM } from '../../types';
+import { useParams, useNavigate } from 'react-router-dom';
 import { Card, CardHeader, CardContent } from '../../components/ui/Card';
 import { Button } from '../../components/ui/Button';
+import { useAppContext } from '../../components/AppContext';
+import { uploadUrl } from '../../lib/api';
 
-export interface MomDetailProps {
-  mom?: MOM;
-}
+export function MomDetail() {
+  const { id } = useParams();
+  const navigate = useNavigate();
+  const { moms, claims } = useAppContext();
 
-// TODO(claude): wire to real MOM + file URL
-const placeholderMom: MOM = {
-  id: 'mom-001',
-  claimId: 'claim-001',
-  companyName: 'Acme Corp',
-  typeOfAccount: 'Enterprise Client',
-  meetingDate: '2023-10-25T14:30:00Z',
-  status: 'Published',
-  source: 'Uploaded' as any,
-  fileName: 'acme_q3_review.pdf',
-  fileUrl: '#',
-  purposeOfMeeting: 'Q3 Business Review and Renewal Discussion',
-  category: 'Business Review',
-  location: 'Virtual (Zoom)',
-  contactPerson: 'Jane Doe',
-  contactPersonDesignation: 'VP of Procurement',
-  contactPersonEmail: 'jane.doe@acmecorp.com',
-  meetingType: 'External',
-  description: 'Discussed Q3 performance metrics, resolved outstanding support tickets, and presented the updated SLA for the upcoming contract renewal.',
-  agreements: 'Agreed to a 5% discount on the renewal for a 2-year commitment.',
-  actionItems: '1. Send updated SLA draft by Friday.\n2. Schedule follow-up with technical team.',
-  preparedBy: 'John Smith',
-  participantsInternal: 'John Smith, Alice Johnson',
-  participantsExternal: 'Jane Doe, Bob Brown',
-};
+  const mom = moms.find(m => m.id === id);
 
-export function MomDetail({ mom = placeholderMom }: MomDetailProps) {
+  if (!mom) {
+    return (
+      <div className="space-y-6 animate-in fade-in duration-500">
+        <nav className="flex gap-2 text-on-surface-variant font-label-sm">
+          <span className="cursor-pointer hover:text-primary" onClick={() => navigate('/moms')}>Minutes of Meeting</span>
+        </nav>
+        <Card className="p-12 text-center text-outline">
+          <span className="material-symbols-outlined text-[48px] mb-3">meeting_room</span>
+          <p className="font-headline-sm text-on-surface mb-1">Not found</p>
+          <p className="text-sm">This record doesn't exist, or you don't have access to it.</p>
+        </Card>
+      </div>
+    );
+  }
+
   const dateStr = mom.meetingDate ? new Date(mom.meetingDate).toLocaleString() : 'No date specified';
+  const linkedClaim = mom.claimId ? claims.find(c => c.id === mom.claimId) : undefined;
+  const fileUrl = uploadUrl(mom.fileUrl);
 
   const internalParticipants = mom.participantsInternal?.split(',').map(p => p.trim()).filter(Boolean) || [];
   const externalParticipants = mom.participantsExternal?.split(',').map(p => p.trim()).filter(Boolean) || [];
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-6 animate-in fade-in duration-500 pb-12">
+      <nav className="flex gap-2 text-on-surface-variant font-label-sm">
+        <span className="cursor-pointer hover:text-primary" onClick={() => navigate('/moms')}>Minutes of Meeting</span>
+        <span>/</span>
+        <span className="text-on-surface font-semibold">{mom.companyName || 'Untitled meeting'}</span>
+      </nav>
+
       <Card>
         <CardHeader className="flex-col md:flex-row items-start md:items-center gap-4">
           <div>
@@ -47,21 +48,23 @@ export function MomDetail({ mom = placeholderMom }: MomDetailProps) {
               {mom.companyName || 'Unknown Company'}
             </h2>
             <p className="text-body-sm text-outline mt-1">
-              {mom.typeOfAccount} &bull; {dateStr}
+              {mom.typeOfAccount || mom.preparedBy} &bull; {dateStr}
             </p>
           </div>
           <div className="flex items-center gap-3">
             <span className="inline-flex items-center px-3 py-1 rounded-[6px] text-[11px] font-bold uppercase tracking-wider bg-surface-container-highest text-on-surface-variant">
               {mom.status || 'Draft'}
             </span>
-            <Button variant="outline" className="gap-2">
-              <span className="material-symbols-outlined text-[18px]">edit</span>
-              Edit
-            </Button>
+            {linkedClaim && (
+              <Button variant="outline" className="gap-2" onClick={() => navigate(`/claims/${linkedClaim.id}`)}>
+                <span className="material-symbols-outlined text-[18px]">receipt_long</span>
+                View Claim ({linkedClaim.ref})
+              </Button>
+            )}
           </div>
         </CardHeader>
         <CardContent className="grid grid-cols-1 md:grid-cols-2 gap-8">
-          
+
           <div className="space-y-6">
             <section>
               <h3 className="text-label-sm uppercase tracking-wider text-outline mb-3">Meeting Details</h3>
@@ -81,6 +84,10 @@ export function MomDetail({ mom = placeholderMom }: MomDetailProps) {
                 <div>
                   <dt className="text-label-sm text-outline">Category</dt>
                   <dd className="text-body-base font-medium mt-1">{mom.category || '-'}</dd>
+                </div>
+                <div>
+                  <dt className="text-label-sm text-outline">Prepared By</dt>
+                  <dd className="text-body-base font-medium mt-1">{mom.preparedBy || '-'}</dd>
                 </div>
               </dl>
             </section>
@@ -143,7 +150,7 @@ export function MomDetail({ mom = placeholderMom }: MomDetailProps) {
                   <h4 className="text-label-sm font-semibold mb-1">Summary / Description</h4>
                   <p className="text-body-sm text-on-surface-variant whitespace-pre-wrap">{mom.description || mom.summary || 'No description provided.'}</p>
                 </div>
-                
+
                 {mom.agreements && (
                   <div>
                     <h4 className="text-label-sm font-semibold mb-1">Agreements</h4>
@@ -164,8 +171,8 @@ export function MomDetail({ mom = placeholderMom }: MomDetailProps) {
           <div className="space-y-6">
              <section className="h-full flex flex-col">
                 <h3 className="text-label-sm uppercase tracking-wider text-outline mb-3">Attached Document</h3>
-                
-                {mom.fileUrl ? (
+
+                {fileUrl ? (
                   <div className="flex flex-col flex-1 border border-brand-border rounded-[10px] overflow-hidden bg-surface-container-low min-h-[400px]">
                     <div className="p-3 border-b border-brand-border flex items-center justify-between bg-surface-container-lowest">
                       <div className="flex items-center gap-2">
@@ -174,23 +181,24 @@ export function MomDetail({ mom = placeholderMom }: MomDetailProps) {
                           {mom.fileName || 'document.pdf'}
                         </span>
                       </div>
-                      <Button size="sm" variant="outline" className="gap-2">
-                        <span className="material-symbols-outlined text-[16px]">download</span>
-                        Download
-                      </Button>
+                      <a href={fileUrl} target="_blank" rel="noreferrer" download={mom.fileName}>
+                        <Button size="sm" variant="outline" className="gap-2">
+                          <span className="material-symbols-outlined text-[16px]">download</span>
+                          Download
+                        </Button>
+                      </a>
                     </div>
-                    
+
                     <div className="flex-1 flex items-center justify-center p-4">
-                      {/* Embedded viewer area */}
-                      {mom.fileUrl.match(/\.(jpeg|jpg|gif|png)$/i) ? (
-                        <img src={mom.fileUrl} alt="Attachment Preview" className="max-w-full max-h-full object-contain rounded" />
+                      {mom.fileName?.match(/\.(jpeg|jpg|gif|png)$/i) ? (
+                        <img src={fileUrl} alt="Attachment Preview" className="max-w-full max-h-full object-contain rounded" />
+                      ) : mom.fileName?.match(/\.pdf$/i) ? (
+                        <iframe title="MOM attachment" src={fileUrl} className="w-full h-full min-h-[350px] rounded border border-brand-border" />
                       ) : (
-                        <div className="w-full h-full min-h-[300px] flex items-center justify-center bg-surface-container rounded border border-brand-border border-dashed">
-                          <div className="text-center text-outline">
-                            <span className="material-symbols-outlined text-[48px] mb-2 opacity-50">picture_as_pdf</span>
-                            <p className="text-body-sm">PDF Preview Area</p>
-                            <p className="text-[11px] mt-1">If browser supports inline viewing</p>
-                          </div>
+                        <div className="w-full h-full min-h-[300px] flex flex-col items-center justify-center bg-surface-container rounded border border-brand-border border-dashed text-center text-outline">
+                          <span className="material-symbols-outlined text-[48px] mb-2 opacity-50">description</span>
+                          <p className="text-body-sm">Preview not available for this file type.</p>
+                          <p className="text-[11px] mt-1">Use Download to open it.</p>
                         </div>
                       )}
                     </div>
@@ -200,7 +208,7 @@ export function MomDetail({ mom = placeholderMom }: MomDetailProps) {
                     <span className="material-symbols-outlined text-[32px] mb-2 opacity-50">draft</span>
                     <p className="text-body-sm font-medium">No file attached</p>
                     <p className="text-[12px] mt-1 max-w-[250px]">
-                      This MOM was created via template or the document has not been uploaded yet.
+                      This MOM was created via the template form — the fields on the left are the record.
                     </p>
                   </div>
                 )}

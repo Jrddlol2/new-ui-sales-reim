@@ -11,6 +11,13 @@ Sources: `AUDIT.md` (functional findings 1–19 + UX-1…UX-8), `PRODUCTION-PASS
 > reviewed + merged into `main` (commit `06e948e`) — A1, A2 (design), A3 (design + routed),
 > A4, A6, and most of A7 are done; B2 rode along for free. Still open in Track A: A5 (error
 > boundary UI) and finishing A7 (table-scroll/mobile). See each item below for exact status.
+>
+> **Phase 1** (`e89c3f4`): B4, B10, B11, B12, B16 done. **Phase 1.5** (`41f9ec6`): B14 done,
+> plus a new `/payouts` page and custodian payment-method picker (not originally scoped —
+> see note under B14). **Phase 2** (2026-07-28, same day): B13 and B9 done; B3 extended to
+> Receipts/User Accounts/Transaction History (Audit Log/System Emails still server-side-less);
+> a same-day user feedback pass (`Improvements_v2`) also fixed several items not sourced from
+> AUDIT/PRODUCTION-PASS — see **"Improvements_v2 pass"** section near the bottom.
 
 ---
 
@@ -203,7 +210,7 @@ Search box and status dropdown are decorative (no `onChange`).
 - [ ] Empty-result state shown
 - [ ] `tsc` clean; verified in browser
 
-### B3 · Server-side pagination + filtering + clickable rows `[ ]`  ↔ UX-1, P1 #8
+### B3 · Server-side pagination + filtering + clickable rows `[~]`  ↔ UX-1, P1 #8 — MOMs (A-track) + Receipts, User Accounts, Transaction History (2026-07-28, client-side) now paginate/filter. Audit Log and System Emails still render full unpaginated lists; none of this is server-side paged yet (all client-side `.slice()` over a fully-fetched list) — the original server-side-pagination ask is still open for all of them.
 Every long list renders all rows (reads as infinite scroll), most rows aren't clickable, and
 filters are missing. Do the biggest offenders first.
 
@@ -299,7 +306,7 @@ The "Stale Approvals" banner is a mock filter; backend has transfer/reassign/fal
 - [ ] Survives reload; or standalone upload cleanly removed
 - [ ] Verified
 
-### B9 · Transaction History real dates & columns `[ ]`  ↔ #15
+### B9 · Transaction History real dates & columns `[x]`  ↔ #15 — done 2026-07-28. Real per-row completion date now sourced from `statusHistory`'s Completed entry (was `new Date()` on every row); added Payment Method + Payment Reference columns from the claim record.
 Completion Date renders `new Date()` for every row; release code / payment ref hidden.
 
 **Prompt:**
@@ -351,7 +358,7 @@ memory.
 - [ ] Callers updated; `tsc` clean
 - [ ] No silent local-only mutations remain
 
-### B13 · Wire MomDetail (integrate A2) `[ ]`  ⇄ handoff · ↔ UX-2
+### B13 · Wire MomDetail (integrate A2) `[x]`  ⇄ handoff · ↔ UX-2 — done 2026-07-28. `/moms/:id` route added, wired to real MOM data; the file panel uses `uploadUrl()` (was defined but never called anywhere in the app — real uploaded files were 401ing on view, fixed here and in Receipts/ClaimDetail too) with inline `<img>`/`<iframe>` preview + Download. MOMs list row now opens the MOM detail; ClaimDetail's dead "Template Form" text became a real "View Full Minutes" link. Verified both with and without a file.
 **Prompt:**
 > Integrate the `MomDetail.tsx` screen from AI Studio (A2): add a `/moms/:id` route, wire it to
 > real MOM data from context, and make the attached-file panel show the real uploaded document
@@ -364,7 +371,7 @@ memory.
 - [ ] MOMs list row → MOM detail
 - [ ] Verified both with/without a file
 
-### B14 · Merge approver Dashboard + My Requests `[ ]`  ↔ UX-3
+### B14 · Merge approver Dashboard + My Requests `[x]`  ↔ UX-3 — done in Phase 1.5 (`41f9ec6`). Shipped alongside two additions not originally scoped here: a custodian payment-method picker (`systemSettings.paymentMethods`, admin-editable, server-validated on release/collect-refund) and a new `/payouts` page (requestor + approver) listing Ready-for-Claim claims with the Confirm Receipt flow.
 **Prompt:**
 > For the approver role, consolidate the requestor-style Dashboard and My Requests into a single
 > "My Requests" module (so an approver who also submits sees one place). Keep the Approval Queue
@@ -481,12 +488,12 @@ Each milestone mixes a little Track A and Track B so the app improves visibly ea
 - [x] A6 Shared states built · [~] A7 a11y/responsive (labels+contrast done, table-scroll/mobile pass open)
 
 ### M3 — Close the workflow gaps  `[~]`
-- [x] A2 done → [ ] B13 MOM detail wiring (route + real data + file viewer)
+- [x] A2 done → [x] B13 MOM detail wiring (route + real data + file viewer)
 - [x] A3 done → [ ] B15 Per-role notifications wiring (real `/api/outbox`)
 - [ ] B5 Review-meeting loop
 - [ ] B6 Resubmit returned claim
 - [ ] B7 Stale-approver/transfer
-- [ ] B8 Receipt archive upload · B9 Transaction history · B14 Approver module merge
+- [ ] B8 Receipt archive upload (still open by design, see B12) · [x] B9 Transaction history · [x] B14 Approver module merge
 
 ### M4 — Correctness & polish  `[~]`
 - [ ] B17 Currency → PHP
@@ -498,6 +505,48 @@ Each milestone mixes a little Track A and Track B so the app improves visibly ea
 - [ ] P0-4 Storage · P0-5 Secrets · P1-7 Security middleware
 - [ ] P1-11 Strict · P1-12 Tests+CI · P1-13 Validation/concurrency · P1-10 Real email
 - [ ] P2 tail
+
+---
+
+# Improvements_v2 pass (2026-07-28)
+
+Same-day work driven by a direct user feedback doc (screenshots + notes, not sourced from
+AUDIT.md/PRODUCTION-PASS.md), triaged into "fix now" vs "fold into Phase 2" vs "new scope."
+All `[x]` below, verified live + `tsc` clean, except the one still-open item at the end.
+
+**Fix-now bucket:**
+- [x] Claim Detail's "Go to Approval"/"Go to Processing" were nav-only dead ends — replaced
+  with real inline Approve/Return/Reject (approver) and Review/Release/Close (custodian)
+  actions, extracted into shared `components/shared/ApproverActionButtons.tsx` and
+  `CustodianActionButtons.tsx` so ApprovalQueue/ProcessingQueue and ClaimDetail share one
+  copy of the decision rules instead of drifting.
+- [x] Claim Detail header: title/status-badge block could visually overlap the button row on
+  narrow widths — now stacks (`flex-col` → `flex-row` at `lg`) instead of overlapping.
+- [x] Approver Dashboard's type-filter pills clipped the active pill's `shadow-md` — the
+  `overflow-x-auto` wrapper implicitly forced `overflow-y: auto` too (CSS spec quirk); swapped
+  for `flex-wrap` since there are only 4 short pills, so `overflow` is `visible` again.
+- [x] Receipt Archive had no pagination at all — added (12/page).
+
+**Phase 2 (folded into the already-planned B3/B13 work):**
+- [x] B13 (MOM detail + file viewer) — see Track B above.
+- [x] Receipt Archive: My/Team tabs for approvers (scoped to already-role-filtered data, no
+  new endpoint — `GET /api/claims`'s existing approver scoping already backs it).
+- [x] B3 extended to User Accounts and Transaction History (search/filter + pagination); B9
+  (Transaction History real dates) fixed in the same pass — see Track B above.
+- [x] Company Directory: added Contact Person, Contact Email, Location fields end-to-end
+  (`serverTypes.ts`, `server.ts` POST/PUT `/api/companies`, `types.ts`, the admin UI). The
+  server already had unused "Phase 1 MDM" fields (`address`, `tax_id`, etc.) nothing read;
+  this reuses `address` for Location rather than adding a duplicate field.
+- [x] Demo data generator: seeded MOMs now vary `meeting_type`/category/participants instead
+  of always rendering "-"/"None listed", and ~1/3 are now `Uploaded` source with a real
+  viewable file (previously 0% — the file-viewer path was never exercised by seed data). Also
+  fixed two broken image references: `/receipt_placeholder.png` was 404ing across all seeded
+  receipts (referenced, file never existed); added it plus a MOM-attachment placeholder to
+  `public/`.
+
+**New scope, deferred (needs its own design pass, not a fold-in):**
+- [ ] **Policy Compliance tab** (admin-editable claim rules/policies) — a small rules engine,
+  not a UI tweak. Do this after the M3 workflow-gap items above, as its own scoped session.
 
 ---
 

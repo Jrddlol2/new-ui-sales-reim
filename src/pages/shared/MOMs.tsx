@@ -85,7 +85,11 @@ export function MOMs() {
               ) : paginatedMOMs.map(mom => {
                 const ref = claimRefFor(mom.claimId);
                 return (
-                  <tr key={mom.id} className="hover:bg-primary-container/5 transition-colors">
+                  <tr
+                    key={mom.id}
+                    className="hover:bg-primary-container/5 transition-colors cursor-pointer"
+                    onClick={() => navigate(`/moms/${mom.id}`)}
+                  >
                     <td className="px-6 py-5">
                       <p className="font-bold text-on-surface">{mom.purposeOfMeeting || 'Untitled meeting'}</p>
                       {mom.location && <p className="text-body-sm text-outline mt-0.5">{mom.location}</p>}
@@ -98,7 +102,7 @@ export function MOMs() {
                     <td className="px-6 py-5 text-sm">
                       {ref ? (
                         <button
-                          onClick={() => navigate(`/claims/${mom.claimId}`)}
+                          onClick={(e) => { e.stopPropagation(); navigate(`/claims/${mom.claimId}`); }}
                           className="text-primary font-semibold hover:underline"
                         >
                           {ref}

@@ -66,6 +66,9 @@ export interface Company {
   name: string;
   industry?: string;
   notes?: string;
+  address?: string;
+  contactPerson?: string;
+  contactEmail?: string;
 }
 
 export const FIELD_ENTITIES = [

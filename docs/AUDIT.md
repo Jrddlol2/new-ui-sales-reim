@@ -180,6 +180,9 @@ All Requests / Claims / Cash Advances / Liquidations look like a filter but have
 handler. **Fix:** Wire them to filter the worklist by type, or remove them.
 
 ### 15. Transaction History shows today's date for every payout — `LOW`
+> **Fixed 2026-07-28.** Real per-row completion date now sourced from `statusHistory`; added
+> Payment Method + Payment Reference columns. Also gained search + pagination in the same pass.
+
 **Where:** `custodian/TransactionHistory.tsx`
 The "Completion Date" column renders `new Date()` for all rows (a comment admits it's a
 mock), and the release code / payment reference the custodian recorded aren't shown.
@@ -281,6 +284,9 @@ type/status **filters are missing or decorative**. Confirmed per page:
 filter server-side); do them together.
 
 ## 🔵 UX-2. No MOM detail view; meeting summary is thin and the file isn't viewable — `MEDIUM`
+> **Fixed 2026-07-28** (roadmap B13). `/moms/:id` now renders the full record with a real
+> file viewer; also surfaced a real "View Full Minutes" link from Claim Detail (was dead text).
+
 *Screenshots: pp. 3, 6 ("can't click the minutes of the meeting for more info"; "I want
 more details from the meeting summary… and if there is a template form, make sure the file
 is viewable").*
@@ -292,6 +298,8 @@ document **viewable/downloadable** in-app, not just referenced. The old system h
 `MomDetail` page that wasn't carried over.
 
 ## 🔵 UX-3. Approver "My Requests" should merge the requestor Dashboard + My Requests — `MEDIUM`
+> **Fixed in Phase 1.5** (`41f9ec6`, roadmap B14).
+
 *Screenshot: p. 4 (Additional Requests).*
 
 For the approver role, fold the requestor-style Dashboard and the My Requests list into a

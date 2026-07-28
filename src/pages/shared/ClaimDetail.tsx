@@ -4,9 +4,11 @@ import { useParams, useNavigate } from 'react-router-dom';
 import { Card, CardHeader, CardContent } from '../../components/ui/Card';
 import { Button } from '../../components/ui/Button';
 import { StatusBadge } from '../../components/ui/StatusBadge';
+import { ApproverActionButtons } from '../../components/shared/ApproverActionButtons';
+import { CustodianActionButtons } from '../../components/shared/CustodianActionButtons';
 import { useAppContext } from '../../components/AppContext';
 import { useToast } from '../../components/shared/ToastContext';
-import { confirmReceipt } from '../../lib/api';
+import { confirmReceipt, uploadUrl } from '../../lib/api';
 import { UserRole, ClaimStatus, ExpenseLineItem } from '../../types';
 
 export function ClaimDetail() {
@@ -31,7 +33,11 @@ export function ClaimDetail() {
   const isApprover = currentUser.role === UserRole.APPROVER &&
     (claim.status === ClaimStatus.PENDING_APPROVAL || claim.status === ClaimStatus.SUBMITTED) &&
     currentUser.id !== claim.requestorId;
-  const isCustodian = currentUser.role === UserRole.CUSTODIAN && (claim.status === ClaimStatus.PROCESSING || claim.status === ClaimStatus.READY_FOR_CLAIM || claim.status === ClaimStatus.APPROVED);
+  // Matches ProcessingQueue's own worklist scope: the claim must actually be
+  // at a step the custodian can act on (Ready for Claim has nothing left to
+  // do here — that's the requestor's move via Confirm Receipt below).
+  const isCustodian = currentUser.role === UserRole.CUSTODIAN &&
+    (claim.status === ClaimStatus.PROCESSING || claim.status === ClaimStatus.APPROVED || claim.status === ClaimStatus.REVIEWED);
   // Only the requestor closes the loop, by quoting the code the custodian issued.
   const canConfirmReceipt = currentUser.id === claim.requestorId && claim.status === ClaimStatus.READY_FOR_CLAIM;
 
@@ -58,22 +64,22 @@ export function ClaimDetail() {
 
   return (
     <div className="flex flex-col gap-8 animate-in fade-in duration-500 pb-12">
-      <div className="flex justify-between items-end">
-        <div>
+      <div className="flex flex-col lg:flex-row lg:justify-between lg:items-start gap-4">
+        <div className="min-w-0">
           <nav className="flex gap-2 text-on-surface-variant font-label-sm mb-2">
             <span className="cursor-pointer hover:text-primary" onClick={() => navigate(-1)}>Claims</span>
             <span>/</span>
             <span className="text-on-surface font-semibold">{claim.ref}</span>
           </nav>
-          <div className="flex items-center gap-4">
-             <h1 className="font-display text-display text-on-surface">{claim.purpose}</h1>
+          <div className="flex flex-wrap items-center gap-3">
+             <h1 className="font-display text-display text-on-surface break-words">{claim.purpose}</h1>
              <StatusBadge status={claim.status} />
           </div>
         </div>
-        <div className="flex gap-4">
+        <div className="flex flex-wrap items-center gap-3 shrink-0">
           <Button variant="outline" onClick={() => window.print()}>Export PDF</Button>
-          {isApprover && <Button onClick={() => navigate('/approvals')}>Go to Approval</Button>}
-          {isCustodian && <Button onClick={() => navigate('/disbursements')}>Go to Processing</Button>}
+          {isApprover && <ApproverActionButtons claim={claim} size="md" />}
+          {isCustodian && <CustodianActionButtons claim={claim} size="md" />}
           {canConfirmReceipt && (
             <Button className="gap-2" onClick={() => { setReceiptCode(''); setReceiptError(''); setConfirmingReceipt(true); }}>
               <span className="material-symbols-outlined text-[18px]">check_circle</span> Confirm Receipt
@@ -109,9 +115,15 @@ export function ClaimDetail() {
           {mom && (
             <Card>
               <CardContent className="p-6">
-                <div className="flex items-center gap-2 mb-6">
-                  <span className="material-symbols-outlined text-primary">summarize</span>
-                  <h3 className="font-headline-md text-on-surface">Meeting Summary</h3>
+                <div className="flex items-center justify-between gap-4 mb-6">
+                  <div className="flex items-center gap-2">
+                    <span className="material-symbols-outlined text-primary">summarize</span>
+                    <h3 className="font-headline-md text-on-surface">Meeting Summary</h3>
+                  </div>
+                  <Button variant="outline" size="sm" className="gap-1.5" onClick={() => navigate(`/moms/${mom.id}`)}>
+                    <span className="material-symbols-outlined text-[16px]">open_in_new</span>
+                    {mom.fileUrl ? 'View Full Minutes & Document' : 'View Full Minutes'}
+                  </Button>
                 </div>
                 <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
                   <div>
@@ -127,7 +139,7 @@ export function ClaimDetail() {
                   </div>
                   <div>
                     <p className="font-label-sm text-on-surface-variant uppercase tracking-wider mb-1">Source File</p>
-                    <p className="font-body-sm text-primary font-semibold">{mom.fileName || 'Template Form'}</p>
+                    <p className="font-body-sm text-on-surface font-semibold">{mom.fileName || 'Template Form'}</p>
                   </div>
                 </div>
               </CardContent>
@@ -289,14 +301,22 @@ export function ClaimDetail() {
             </div>
 
             <div className="p-4 bg-surface-container-low rounded-lg border border-outline-variant text-center">
-              {activeReceipt.receiptUrl?.startsWith('blob:') || activeReceipt.receiptUrl?.startsWith('data:image') ? (
-                <img src={activeReceipt.receiptUrl} alt="Receipt preview" className="max-h-64 mx-auto object-contain rounded" />
-              ) : (
-                <div className="py-8">
-                  <span className="material-symbols-outlined text-[56px] text-primary mb-2">description</span>
-                  <p className="font-bold text-on-surface">{activeReceipt.receiptFileName || 'Receipt_Document.pdf'}</p>
-                </div>
-              )}
+              {(() => {
+                const url = uploadUrl(activeReceipt.receiptUrl);
+                if (!url) return null;
+                if (url.startsWith('blob:') || url.startsWith('data:image') || url.match(/\.(jpeg|jpg|gif|png)($|\?)/i)) {
+                  return <img src={url} alt="Receipt preview" className="max-h-64 mx-auto object-contain rounded" />;
+                }
+                if (url.match(/\.pdf($|\?)/i)) {
+                  return <iframe title="Receipt attachment" src={url} className="w-full h-64 rounded border border-outline-variant" />;
+                }
+                return (
+                  <div className="py-8">
+                    <span className="material-symbols-outlined text-[56px] text-primary mb-2">description</span>
+                    <p className="font-bold text-on-surface">{activeReceipt.receiptFileName || 'Receipt_Document.pdf'}</p>
+                  </div>
+                );
+              })()}
             </div>
 
             <div className="space-y-1 text-sm text-on-surface">
@@ -307,7 +327,7 @@ export function ClaimDetail() {
 
             <div className="flex justify-end gap-2 pt-2 border-t border-outline-variant">
               {activeReceipt.receiptUrl && (
-                <a href={activeReceipt.receiptUrl} target="_blank" rel="noreferrer" download={activeReceipt.receiptFileName || 'receipt.pdf'}>
+                <a href={uploadUrl(activeReceipt.receiptUrl)} target="_blank" rel="noreferrer" download={activeReceipt.receiptFileName || 'receipt.pdf'}>
                   <Button variant="outline" size="sm" className="gap-1">
                     <span className="material-symbols-outlined text-[16px]">download</span> Download
                   </Button>

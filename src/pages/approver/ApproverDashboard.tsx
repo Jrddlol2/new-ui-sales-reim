@@ -116,7 +116,10 @@ export function ApproverDashboard() {
         </div>
       </div>
 
-      <div className="flex items-center gap-3 overflow-x-auto pb-2 no-scrollbar">
+      {/* flex-wrap (not overflow-x-auto) so the active pill's shadow-md never
+          gets clipped: setting overflow-x forces overflow-y to auto too,
+          which crops any box-shadow that extends past the scroll box. */}
+      <div className="flex flex-wrap items-center gap-3 py-2">
         {(['All', 'Reimbursement', 'Cash Advance', 'Liquidation'] as const).map(t => (
           <button
             key={t}

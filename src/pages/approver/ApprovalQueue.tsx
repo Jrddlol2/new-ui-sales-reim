@@ -4,9 +4,8 @@ import { Card, CardHeader, CardContent } from '../../components/ui/Card';
 import { Button } from '../../components/ui/Button';
 import { StatusBadge } from '../../components/ui/StatusBadge';
 import { ClaimStatus } from '../../types';
-import { ConfirmModal } from '../../components/shared/ConfirmModal';
+import { ApproverActionButtons } from '../../components/shared/ApproverActionButtons';
 import { useAppContext } from '../../components/AppContext';
-import { useToast } from '../../components/shared/ToastContext';
 
 function getAgingInfo(submittedAt: string | undefined, createdAt: string) {
   const start = new Date(submittedAt || createdAt).getTime();
@@ -19,14 +18,9 @@ function getAgingInfo(submittedAt: string | undefined, createdAt: string) {
 
 export function ApprovalQueue() {
   const navigate = useNavigate();
-  const { claims, users, currentUser, updateClaimStatus, delegations } = useAppContext();
-  const { addToast } = useToast();
-  
+  const { claims, users, currentUser, delegations } = useAppContext();
+
   const [filter, setFilter] = useState('All');
-  const [activeModal, setActiveModal] = useState<'approve' | 'reject' | 'return' | null>(null);
-  const [selectedClaimId, setSelectedClaimId] = useState<string | null>(null);
-  const [comment, setComment] = useState('');
-  const [isSubmitting, setIsSubmitting] = useState(false);
 
   const pendingClaims = useMemo(() => claims.filter(c => {
     // Reimbursement claims land on 'Pending Approval'; Cash Advances and
@@ -56,55 +50,6 @@ export function ApprovalQueue() {
   if (filter === 'Stale') displayedClaims = pendingClaims.filter(c => c.approverStaleSince);
 
   const staleClaims = pendingClaims.filter(c => c.approverStaleSince);
-
-  const handleAction = (claimId: string, action: 'approve' | 'reject' | 'return') => {
-    setSelectedClaimId(claimId);
-    setComment('');
-    setActiveModal(action);
-  };
-
-  const handleConfirm = async () => {
-    if (!selectedClaimId || !activeModal) return;
-
-    let newStatus: ClaimStatus;
-    let toastMsg = '';
-    let toastType: 'success' | 'error' | 'info' = 'success';
-
-    switch (activeModal) {
-      case 'approve':
-        newStatus = ClaimStatus.APPROVED;
-        toastMsg = 'Claim approved successfully.';
-        break;
-      case 'reject':
-        newStatus = ClaimStatus.REJECTED;
-        toastMsg = 'Claim rejected.';
-        toastType = 'error';
-        break;
-      case 'return':
-        newStatus = ClaimStatus.RETURNED;
-        toastMsg = 'Claim returned to requestor.';
-        toastType = 'info';
-        break;
-      default:
-        newStatus = ClaimStatus.PENDING_APPROVAL;
-    }
-
-    setIsSubmitting(true);
-    try {
-      await updateClaimStatus(selectedClaimId, newStatus, currentUser.id, comment);
-      addToast(toastMsg, toastType);
-      setActiveModal(null);
-      setSelectedClaimId(null);
-    } catch (err: any) {
-      // Routing rules (delegation expiry, stale approver, self-approval) are
-      // enforced server-side; surface the refusal rather than faking success.
-      addToast(err?.message || 'Could not action this claim.', 'error');
-    } finally {
-      setIsSubmitting(false);
-    }
-  };
-
-  const isConfirmDisabled = (activeModal === 'reject' || activeModal === 'return') && comment.trim() === '';
 
   return (
     <div className="space-y-6 animate-in fade-in duration-500">
@@ -209,18 +154,7 @@ export function ApprovalQueue() {
                     </td>
                     <td className="px-6 py-4 text-right">
                       <div className="flex justify-end items-center gap-2">
-                        <Button size="sm" variant="outline" className="text-primary border-primary hover:bg-primary/10" onClick={() => handleAction(claim.id, 'approve')}>Approve</Button>
-                        {/* Each entity's decision vocabulary is server-enforced and differs:
-                            a reimbursement claim takes Approve/Reject/Return; a Cash Advance
-                            has no "return to revise" concept (Approve/Reject only); a
-                            Liquidation has no "reject" concept once cash is already out
-                            with the requestor (Approve/Return only). */}
-                        {claim.type !== 'Cash Advance' && (
-                          <Button size="sm" variant="outline" className="text-tertiary border-tertiary hover:bg-tertiary/10" onClick={() => handleAction(claim.id, 'return')}>Return</Button>
-                        )}
-                        {claim.type !== 'Liquidation' && (
-                          <Button size="sm" variant="outline" className="text-error border-error hover:bg-error/10" onClick={() => handleAction(claim.id, 'reject')}>Reject</Button>
-                        )}
+                        <ApproverActionButtons claim={claim} />
                         <span className="material-symbols-outlined text-outline ml-2 group-hover:text-primary transition-colors">chevron_right</span>
                       </div>
                     </td>
@@ -231,83 +165,6 @@ export function ApprovalQueue() {
           </table>
         </div>
       </Card>
-
-      {/* Approve Modal */}
-      <ConfirmModal
-        isOpen={activeModal === 'approve'}
-        onClose={() => setActiveModal(null)}
-        onConfirm={handleConfirm}
-        title="Approve Claim"
-        confirmLabel={isSubmitting ? "Approving..." : "Approve"}
-        disabled={isSubmitting}
-      >
-        <p className="mb-4">Are you sure you want to approve this claim? It will be forwarded to the custodian for processing.</p>
-        <div>
-          <label className="block text-label-md text-on-surface mb-1">Comment (Optional)</label>
-          <textarea 
-            className="w-full p-3 rounded-lg border border-outline-variant bg-surface text-on-surface focus:outline-primary resize-none"
-            rows={3}
-            placeholder="Add any notes..."
-            value={comment}
-            onChange={(e) => setComment(e.target.value)}
-            disabled={isSubmitting}
-          />
-        </div>
-      </ConfirmModal>
-
-      {/* Return Modal */}
-      <ConfirmModal
-        isOpen={activeModal === 'return'}
-        onClose={() => setActiveModal(null)}
-        onConfirm={handleConfirm}
-        title="Return for Revision"
-        confirmLabel={isSubmitting ? "Returning..." : "Return to Requestor"}
-        variant="warning"
-        disabled={isConfirmDisabled || isSubmitting}
-      >
-        <p className="mb-4">Return this claim to the requestor for corrections. They will be notified to resubmit.</p>
-        <div>
-          <label className="block text-label-md text-on-surface mb-1">Reason for Return <span className="text-error">*</span></label>
-          <textarea 
-            className="w-full p-3 rounded-lg border border-outline-variant bg-surface text-on-surface focus:outline-primary resize-none"
-            rows={3}
-            placeholder="Please explain what needs to be fixed..."
-            value={comment}
-            onChange={(e) => setComment(e.target.value)}
-            disabled={isSubmitting}
-          />
-          {isConfirmDisabled && (
-            <p className="text-error text-body-sm mt-1">A reason is required to return a claim.</p>
-          )}
-        </div>
-      </ConfirmModal>
-
-      {/* Reject Modal */}
-      <ConfirmModal
-        isOpen={activeModal === 'reject'}
-        onClose={() => setActiveModal(null)}
-        onConfirm={handleConfirm}
-        title="Reject Claim"
-        confirmLabel={isSubmitting ? "Rejecting..." : "Reject Claim"}
-        variant="error"
-        disabled={isConfirmDisabled || isSubmitting}
-      >
-        <p className="mb-4 text-error">Rejecting a claim is final. The requestor will have to create a new claim if they wish to try again.</p>
-        <div>
-          <label className="block text-label-md text-on-surface mb-1">Reason for Rejection <span className="text-error">*</span></label>
-          <textarea 
-            className="w-full p-3 rounded-lg border border-outline-variant bg-surface text-on-surface focus:outline-primary resize-none"
-            rows={3}
-            placeholder="Please explain why this claim is rejected..."
-            value={comment}
-            onChange={(e) => setComment(e.target.value)}
-            disabled={isSubmitting}
-          />
-          {isConfirmDisabled && (
-            <p className="text-error text-body-sm mt-1">A reason is required to reject a claim.</p>
-          )}
-        </div>
-      </ConfirmModal>
     </div>
   );
 }

@@ -244,6 +244,8 @@ export interface Company {
   default_department_id?: string;
   currency?: string;
   tax_id?: string;
+  contact_person?: string;
+  contact_email?: string;
   // Informational reference only — e.g. "usual account owner for this
   // client." Never read for claim approval routing, which is always derived
   // from the requestor's reports_to / an active ApproverDelegation per

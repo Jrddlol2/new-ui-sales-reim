@@ -1,7 +1,8 @@
-import { useState } from 'react';
+import { useState, useEffect, useMemo } from 'react';
 import { Card, CardHeader } from '../../components/ui/Card';
 import { Button } from '../../components/ui/Button';
 import { Input, Select, Label } from '../../components/ui/Input';
+import { Pagination } from '../../components/ui/Pagination';
 import { Portal } from '../../components/shared/Portal';
 import { useAppContext } from '../../components/AppContext';
 import { useToast } from '../../components/shared/ToastContext';
@@ -16,6 +17,27 @@ export function UserAccounts() {
   const [form, setForm] = useState<Partial<User>>({});
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState('');
+
+  const [search, setSearch] = useState('');
+  const [roleFilter, setRoleFilter] = useState('');
+  const [currentPage, setCurrentPage] = useState(1);
+  const itemsPerPage = 15;
+
+  const filteredUsers = useMemo(() => {
+    const q = search.trim().toLowerCase();
+    return users.filter(u => {
+      const matchesSearch = !q || [u.name, u.email, u.department, u.jobTitle].some(v => (v || '').toLowerCase().includes(q));
+      const matchesRole = !roleFilter || u.role === roleFilter;
+      return matchesSearch && matchesRole;
+    });
+  }, [users, search, roleFilter]);
+
+  const totalPages = Math.ceil(filteredUsers.length / itemsPerPage);
+  const paginatedUsers = filteredUsers.slice((currentPage - 1) * itemsPerPage, currentPage * itemsPerPage);
+
+  useEffect(() => {
+    setCurrentPage(1);
+  }, [search, roleFilter]);
 
   const openEditor = (user: User) => {
     setEditing(user);
@@ -78,9 +100,25 @@ export function UserAccounts() {
 
       <Card>
         <CardHeader className="bg-surface-container-low">
-          <div className="flex justify-between items-center w-full">
-            <h3 className="font-label-md uppercase tracking-wider text-on-surface">Registered Users</h3>
-            <span className="font-label-sm text-outline">{users.length} total</span>
+          <div className="flex flex-col sm:flex-row sm:justify-between sm:items-center w-full gap-3">
+            <h3 className="font-label-md uppercase tracking-wider text-on-surface whitespace-nowrap">Registered Users</h3>
+            <div className="flex items-center gap-3">
+              <div className="w-56 max-w-full">
+                <Input
+                  value={search}
+                  onChange={e => setSearch(e.target.value)}
+                  placeholder="Search name, email, department..."
+                  className="py-1.5 text-sm"
+                />
+              </div>
+              <div className="w-40">
+                <Select value={roleFilter} onChange={e => setRoleFilter(e.target.value)} className="py-1.5 text-sm">
+                  <option value="">All Roles</option>
+                  {Object.values(UserRole).map(r => <option key={r} value={r}>{r}</option>)}
+                </Select>
+              </div>
+              <span className="font-label-sm text-outline whitespace-nowrap">{filteredUsers.length} of {users.length}</span>
+            </div>
           </div>
         </CardHeader>
         <div className="overflow-x-auto">
@@ -97,7 +135,14 @@ export function UserAccounts() {
               </tr>
             </thead>
             <tbody className="divide-y divide-outline-variant">
-              {users.map(user => {
+              {paginatedUsers.length === 0 ? (
+                <tr>
+                  <td colSpan={7} className="px-6 py-12 text-center text-outline">
+                    <span className="material-symbols-outlined text-4xl mb-2 opacity-50">person_search</span>
+                    <p className="font-label-md">No users match your search.</p>
+                  </td>
+                </tr>
+              ) : paginatedUsers.map(user => {
                 const manager = users.find(u => u.id === user.reportsTo);
                 return (
                   <tr key={user.id} className="hover:bg-primary-container/5 transition-colors">
@@ -129,6 +174,11 @@ export function UserAccounts() {
             </tbody>
           </table>
         </div>
+        <Pagination
+          currentPage={currentPage}
+          totalPages={totalPages}
+          onPageChange={setCurrentPage}
+        />
       </Card>
 
       {editing && (

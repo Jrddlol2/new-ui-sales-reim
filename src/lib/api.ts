@@ -479,6 +479,9 @@ export async function loadWorkspace(): Promise<WorkspaceData> {
     fieldDefinitions: (rawFields || []).map(fromServerFieldDefinition),
     companies: (rawCompanies || []).map((c: any): Company => ({
       id: c.id, name: c.name, industry: c.industry || undefined, notes: c.notes || undefined,
+      address: c.address || undefined,
+      contactPerson: c.contact_person || undefined,
+      contactEmail: c.contact_email || undefined,
     })),
     emails: (rawOutbox || []).map(fromServerEmail),
     supportRequests: (rawSupport || []).map(fromServerSupport),
