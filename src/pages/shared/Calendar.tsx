@@ -1,7 +1,11 @@
 import { useState, useMemo } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Card, CardHeader } from '../../components/ui/Card';
+import { Button } from '../../components/ui/Button';
+import { Portal } from '../../components/shared/Portal';
 import { useAppContext } from '../../components/AppContext';
+import { useToast } from '../../components/shared/ToastContext';
+import { confirmReviewMeeting, declineReviewMeeting, rescheduleReviewMeeting } from '../../lib/api';
 import { ReviewMeetingStatus, ReviewMeeting } from '../../types';
 
 const MONTHS = ['January', 'February', 'March', 'April', 'May', 'June', 'July', 'August', 'September', 'October', 'November', 'December'];
@@ -10,12 +14,21 @@ const STATUS_STYLE: Record<string, string> = {
   [ReviewMeetingStatus.CONFIRMED]: 'bg-primary-container text-on-primary-container',
   [ReviewMeetingStatus.PENDING_CONFIRMATION]: 'bg-tertiary-container text-on-tertiary-container',
   [ReviewMeetingStatus.DECLINE_REQUESTED]: 'bg-error-container text-error',
+  [ReviewMeetingStatus.COMPLETED]: 'bg-surface-container-high text-on-surface-variant',
 };
 
 export function Calendar() {
   const navigate = useNavigate();
-  const { reviewMeetings } = useAppContext();
+  const { reviewMeetings, currentUser, refresh } = useAppContext();
+  const { addToast } = useToast();
   const [cursor, setCursor] = useState(() => { const d = new Date(); return { year: d.getFullYear(), month: d.getMonth() }; });
+  const [selected, setSelected] = useState<ReviewMeeting | null>(null);
+  const [rescheduling, setRescheduling] = useState(false);
+  const [newDate, setNewDate] = useState('');
+  const [newTime, setNewTime] = useState('');
+  const [declineReason, setDeclineReason] = useState('');
+  const [showDecline, setShowDecline] = useState(false);
+  const [submitting, setSubmitting] = useState(false);
 
   const { year, month } = cursor;
   const today = new Date();
@@ -42,6 +55,72 @@ export function Calendar() {
   });
 
   const totalThisMonth = Object.keys(byDay).reduce((n, key) => n + byDay[key].length, 0);
+
+  // Selected always reflects the latest server data (after a refresh, the
+  // object reference changes — look it up by id instead of trusting the stale one).
+  const current = selected ? reviewMeetings.find(rm => rm.id === selected.id) || selected : null;
+  const isApprover = current ? current.approverId === currentUser.id : false;
+  const isRequestor = current ? current.requestorId === currentUser.id : false;
+  const canRespond = isApprover && current?.status === ReviewMeetingStatus.PENDING_CONFIRMATION;
+  const canReschedule = isRequestor && current?.status !== ReviewMeetingStatus.COMPLETED;
+
+  const openMeeting = (rm: ReviewMeeting) => {
+    setSelected(rm);
+    setRescheduling(false);
+    setShowDecline(false);
+    setDeclineReason('');
+    setNewDate(rm.meetingDate?.split('T')[0] || '');
+    setNewTime(rm.meetingTime || '');
+  };
+
+  const handleConfirm = async () => {
+    if (!current) return;
+    setSubmitting(true);
+    try {
+      await confirmReviewMeeting(current.id);
+      await refresh();
+      addToast('Review meeting confirmed.', 'success');
+      setSelected(null);
+    } catch (err: any) {
+      addToast(err?.message || 'Could not confirm this meeting.', 'error');
+    } finally {
+      setSubmitting(false);
+    }
+  };
+
+  const handleDecline = async () => {
+    if (!current) return;
+    setSubmitting(true);
+    try {
+      await declineReviewMeeting(current.id, declineReason.trim() || undefined);
+      await refresh();
+      addToast('Review meeting declined. The requestor can propose a new time.', 'success');
+      setSelected(null);
+    } catch (err: any) {
+      addToast(err?.message || 'Could not decline this meeting.', 'error');
+    } finally {
+      setSubmitting(false);
+    }
+  };
+
+  const handleReschedule = async () => {
+    if (!current) return;
+    if (!newDate || !newTime) {
+      addToast('Pick a new date and time.', 'error');
+      return;
+    }
+    setSubmitting(true);
+    try {
+      await rescheduleReviewMeeting(current.id, newDate, newTime);
+      await refresh();
+      addToast('New time proposed to your approver.', 'success');
+      setSelected(null);
+    } catch (err: any) {
+      addToast(err?.message || 'Could not propose a new time.', 'error');
+    } finally {
+      setSubmitting(false);
+    }
+  };
 
   return (
     <div className="space-y-8 animate-in fade-in duration-500">
@@ -88,7 +167,7 @@ export function Calendar() {
                     {events.map(rm => (
                       <button
                         key={rm.id}
-                        onClick={() => navigate(`/claims/${rm.claimId}`)}
+                        onClick={() => openMeeting(rm)}
                         title={`${rm.claimNumber || 'Claim'} — ${rm.status}${rm.meetingTime ? ` at ${rm.meetingTime}` : ''}`}
                         className={`w-full text-left text-[10px] px-2 py-1 rounded truncate ${STATUS_STYLE[rm.status] || 'bg-surface-container-high text-on-surface'}`}
                       >
@@ -108,6 +187,100 @@ export function Calendar() {
           </div>
         </div>
       </Card>
+
+      {current && (
+        <Portal>
+          <div className="fixed inset-0 bg-black/50 backdrop-blur-sm z-50 flex items-center justify-center p-4 animate-in fade-in">
+            <div className="bg-surface-container-lowest rounded-xl max-w-md w-full p-6 shadow-2xl space-y-4">
+              <div className="flex justify-between items-center border-b border-outline-variant pb-3">
+                <h3 className="font-headline-sm text-on-surface">Review Meeting</h3>
+                <button onClick={() => setSelected(null)} className="text-outline hover:text-on-surface">
+                  <span className="material-symbols-outlined">close</span>
+                </button>
+              </div>
+
+              <div className="space-y-2 text-sm">
+                <div className="flex justify-between"><span className="text-outline">Claim</span>
+                  <span className="text-primary font-medium cursor-pointer hover:underline" onClick={() => { setSelected(null); navigate(`/claims/${current.claimId}`); }}>{current.claimNumber || 'View claim'}</span>
+                </div>
+                <div className="flex justify-between"><span className="text-outline">Requestor</span><span className="text-on-surface">{current.requestorName || '—'}</span></div>
+                <div className="flex justify-between"><span className="text-outline">Approver</span><span className="text-on-surface">{current.approverName || '—'}</span></div>
+                <div className="flex justify-between"><span className="text-outline">Proposed time</span><span className="text-on-surface font-mono-data">{current.meetingDate?.split('T')[0]} {current.meetingTime}</span></div>
+                <div className="flex justify-between"><span className="text-outline">Status</span>
+                  <span className={`px-2 py-0.5 rounded text-xs font-bold ${STATUS_STYLE[current.status] || 'bg-surface-container-high text-on-surface'}`}>{current.status}</span>
+                </div>
+                {current.declineReason && (
+                  <div className="p-3 bg-error-container/20 border border-error/20 rounded-lg">
+                    <p className="text-xs font-medium text-error mb-1">Decline reason:</p>
+                    <p className="text-xs text-on-surface-variant italic">"{current.declineReason}"</p>
+                  </div>
+                )}
+              </div>
+
+              {canRespond && !showDecline && (
+                <div className="flex justify-end gap-2 pt-2 border-t border-outline-variant">
+                  <Button variant="outline" className="gap-2" onClick={() => setShowDecline(true)} disabled={submitting}>
+                    <span className="material-symbols-outlined text-[16px]">event_busy</span> Decline
+                  </Button>
+                  <Button className="gap-2" onClick={handleConfirm} disabled={submitting}>
+                    {submitting ? <span className="material-symbols-outlined animate-spin text-[16px]">sync</span> : <span className="material-symbols-outlined text-[16px]">event_available</span>}
+                    Confirm
+                  </Button>
+                </div>
+              )}
+
+              {canRespond && showDecline && (
+                <div className="space-y-3 pt-2 border-t border-outline-variant">
+                  <textarea
+                    rows={2}
+                    className="w-full bg-white border border-[#CBD5E1] rounded-[6px] px-3 py-2 text-body-sm focus:ring-2 focus:ring-primary/20 focus:border-primary transition-all outline-none"
+                    placeholder="Reason (optional)"
+                    value={declineReason}
+                    onChange={e => setDeclineReason(e.target.value)}
+                  />
+                  <div className="flex justify-end gap-2">
+                    <Button variant="ghost" onClick={() => setShowDecline(false)} disabled={submitting}>Back</Button>
+                    <Button className="gap-2" onClick={handleDecline} disabled={submitting}>
+                      {submitting ? <span className="material-symbols-outlined animate-spin text-[16px]">sync</span> : null}
+                      Confirm Decline
+                    </Button>
+                  </div>
+                </div>
+              )}
+
+              {!canRespond && canReschedule && !rescheduling && (
+                <div className="flex justify-end pt-2 border-t border-outline-variant">
+                  <Button variant="outline" className="gap-2" onClick={() => setRescheduling(true)}>
+                    <span className="material-symbols-outlined text-[16px]">edit_calendar</span> Propose New Time
+                  </Button>
+                </div>
+              )}
+
+              {canReschedule && rescheduling && (
+                <div className="space-y-3 pt-2 border-t border-outline-variant">
+                  <div className="grid grid-cols-2 gap-3">
+                    <div>
+                      <label className="text-xs text-outline uppercase tracking-wider font-medium">Date</label>
+                      <input type="date" value={newDate} onChange={e => setNewDate(e.target.value)} className="w-full bg-white border border-[#CBD5E1] rounded-[6px] px-3 py-2 text-body-sm focus:ring-2 focus:ring-primary/20 focus:border-primary transition-all outline-none" />
+                    </div>
+                    <div>
+                      <label className="text-xs text-outline uppercase tracking-wider font-medium">Time</label>
+                      <input type="time" value={newTime} onChange={e => setNewTime(e.target.value)} className="w-full bg-white border border-[#CBD5E1] rounded-[6px] px-3 py-2 text-body-sm focus:ring-2 focus:ring-primary/20 focus:border-primary transition-all outline-none" />
+                    </div>
+                  </div>
+                  <div className="flex justify-end gap-2">
+                    <Button variant="ghost" onClick={() => setRescheduling(false)} disabled={submitting}>Cancel</Button>
+                    <Button className="gap-2" onClick={handleReschedule} disabled={submitting}>
+                      {submitting ? <span className="material-symbols-outlined animate-spin text-[16px]">sync</span> : null}
+                      Send New Time
+                    </Button>
+                  </div>
+                </div>
+              )}
+            </div>
+          </div>
+        </Portal>
+      )}
     </div>
   );
 }

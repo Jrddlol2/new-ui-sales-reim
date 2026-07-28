@@ -34,7 +34,8 @@ export enum DelegationStatus {
 export enum ReviewMeetingStatus {
   PENDING_CONFIRMATION = 'PendingConfirmation',
   CONFIRMED = 'Confirmed',
-  DECLINE_REQUESTED = 'DeclineRequested'
+  DECLINE_REQUESTED = 'DeclineRequested',
+  COMPLETED = 'Completed'
 }
 
 export enum SupportRequestStatus {

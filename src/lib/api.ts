@@ -186,6 +186,7 @@ const REVIEW_MEETING_STATUS: Record<string, ReviewMeetingStatus> = {
   PendingConfirmation: ReviewMeetingStatus.PENDING_CONFIRMATION,
   Confirmed: ReviewMeetingStatus.CONFIRMED,
   DeclineRequested: ReviewMeetingStatus.DECLINE_REQUESTED,
+  Completed: ReviewMeetingStatus.COMPLETED,
 };
 
 export function fromServerReviewMeeting(r: any): ReviewMeeting {
@@ -582,6 +583,26 @@ export const runFallbackCheck = (force = false) =>
   apiFetch('/api/admin/run-fallback-check', {
     method: 'POST',
     body: JSON.stringify({ force }),
+  });
+
+// --- review-meeting scheduling loop -----------------------------------------
+
+/** Approver (or active delegate) confirms the requestor's proposed time. */
+export const confirmReviewMeeting = (id: string) =>
+  apiFetch(`/api/review-meetings/${id}/confirm`, { method: 'POST' });
+
+/** Approver (or active delegate) can't make the proposed time. */
+export const declineReviewMeeting = (id: string, reason?: string) =>
+  apiFetch(`/api/review-meetings/${id}/decline`, {
+    method: 'POST',
+    body: JSON.stringify({ reason }),
+  });
+
+/** Requestor proposes a new date/time — re-opens pending confirmation. */
+export const rescheduleReviewMeeting = (id: string, meetingDate: string, meetingTime: string) =>
+  apiFetch(`/api/review-meetings/${id}/reschedule`, {
+    method: 'PUT',
+    body: JSON.stringify({ meeting_date: meetingDate, meeting_time: meetingTime }),
   });
 
 /**
