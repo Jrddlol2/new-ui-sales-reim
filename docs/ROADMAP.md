@@ -7,6 +7,11 @@ adapter, cross-file integration, and verification against the real server).
 Every item below carries a **ready-to-paste prompt** and an **acceptance checklist**.
 Sources: `AUDIT.md` (functional findings 1–19 + UX-1…UX-8), `PRODUCTION-PASS.md` (P0–P2).
 
+> **Status (2026-07-28):** Track A's first pass landed via Google AI Studio and was
+> reviewed + merged into `main` (commit `06e948e`) — A1, A2 (design), A3 (design + routed),
+> A4, A6, and most of A7 are done; B2 rode along for free. Still open in Track A: A5 (error
+> boundary UI) and finishing A7 (table-scroll/mobile). See each item below for exact status.
+
 ---
 
 ## How to use this
@@ -45,7 +50,7 @@ Sources: `AUDIT.md` (functional findings 1–19 + UX-1…UX-8), `PRODUCTION-PASS
 > data is Track B. Where a component needs real data, build it against props/placeholder
 > data and leave a `// TODO(claude): wire to API` marker.
 
-### A1 · Approval Queue: make actions discoverable `[ ]`  ↔ UX-5
+### A1 · Approval Queue: make actions discoverable `[x]`  ↔ UX-5 — done 2026-07-28, verified live
 Quick-action buttons only appear on hover (`opacity-0 group-hover:opacity-100`), so they're
 invisible until you mouse over the row and unusable on touch.
 
@@ -63,7 +68,7 @@ invisible until you mouse over the row and unusable on touch.
 - [ ] Existing row-click-to-detail still works; button clicks don't double-trigger it
 - [ ] No handler/logic/data changes
 
-### A2 · Minutes-of-Meeting detail screen `[ ]`  ⇄ handoff · ↔ UX-2
+### A2 · Minutes-of-Meeting detail screen `[x]` (design done; wiring = B13) ⇄ handoff · ↔ UX-2
 There is no MOM detail view; a MOM row currently jumps to the *claim*. Design the screen
 (Track B wires it — see **B13**).
 
@@ -83,7 +88,7 @@ There is no MOM detail view; a MOM row currently jumps to the *claim*. Design th
 - [ ] Responsive; matches app theming (light/dark)
 - [ ] Marked `TODO(claude)` for data wiring; no API calls invented
 
-### A3 · Per-role Notifications / Inbox screen `[ ]`  ⇄ handoff · ↔ UX-4
+### A3 · Per-role Notifications / Inbox screen `[x]` (design done + routed at /notifications; wiring = B15) ⇄ handoff · ↔ UX-4
 Every role should have its own inbox of the mail the system already generates. Design the
 shell (Track B wires it to the outbox — see **B15**).
 
@@ -101,7 +106,7 @@ shell (Track B wires it to the outbox — see **B15**).
 - [ ] Responsive + themed
 - [ ] `TODO(claude)` marker present
 
-### A4 · Settings: Notifications & Security tab content `[ ]`  ↔ #17
+### A4 · Settings: Notifications & Security tab content `[x]` (UI done; persistence still TODO) ↔ #17
 Both tabs are placeholders ("Settings for … can be configured here").
 
 **Prompt:**
@@ -132,7 +137,7 @@ the boundary itself — see **B23-group**).
 - [ ] "Try again" + collapsible detail; themed/responsive
 - [ ] No routing/boundary logic (that's Track B)
 
-### A6 · Shared empty / loading / error states `[ ]`  ↔ P2 #17
+### A6 · Shared empty / loading / error states `[x]`  ↔ P2 #17 — components built, not yet adopted by pages (see M2)
 Dashboards and a few pages handle these ad hoc.
 
 **Prompt:**
@@ -145,7 +150,7 @@ Dashboards and a few pages handle these ad hoc.
 - [ ] `Skeleton`, `EmptyState`, `ErrorState` components, themed
 - [ ] Usage example included; no data logic
 
-### A7 · Accessibility & responsive pass `[ ]`  ↔ P2 #16, #22
+### A7 · Accessibility & responsive pass `[~]`  ↔ P2 #16, #22 — aria-labels + StatusBadge contrast/dark-mode done; table-scroll/mobile pass still open
 **Prompt:**
 > Do an accessibility + responsive pass on the shared layout and dense tables. Add
 > `aria-label`s to icon-only buttons (filter, more-options, notification bell, sidebar toggle),
@@ -183,7 +188,7 @@ and always opens the type picker.
 - [ ] Verified from RequestorDashboard buttons
 - [ ] `tsc` clean
 
-### B2 · Wire My Requests search + status filter `[ ]`  ↔ #12
+### B2 · Wire My Requests search + status filter `[x]`  ↔ #12 — done 2026-07-28 (via AI Studio's A-track pass; fixed one filter-value bug on merge)
 Search box and status dropdown are decorative (no `onChange`).
 
 **Prompt:**
@@ -456,30 +461,30 @@ The load-bearing backend work, in dependency order. Each is its own Claude Code 
 
 Each milestone mixes a little Track A and Track B so the app improves visibly each round.
 
-### M1 — Quick wins (½–1 day)  `[ ]`
-- [ ] A1 Approval actions visible
+### M1 — Quick wins (½–1 day)  `[~]`
+- [x] A1 Approval actions visible
 - [ ] B1 `?type=` deep-link
-- [ ] B2 My Requests filter
+- [x] B2 My Requests filter
 - [ ] B11 Kill fake dashboard delay
 - [ ] B16 Custodian wording (get the decision)
 
-### M2 — Truthful dashboards & lists  `[ ]`
+### M2 — Truthful dashboards & lists  `[~]`
 - [ ] B4 Real dashboard KPIs (all four)
 - [ ] B10 Remove toast-only buttons
-- [ ] B3 Server-side pagination + clickable rows
-- [ ] A6/A7 Shared states + a11y/responsive pass
+- [ ] B3 Server-side pagination + clickable rows (MOMs/ClaimsList got client-side pagination via A-track; server-side for Audit Log/Emails/Transactions still open)
+- [x] A6 Shared states built · [~] A7 a11y/responsive (labels+contrast done, table-scroll/mobile pass open)
 
-### M3 — Close the workflow gaps  `[ ]`
-- [ ] A2 → B13 MOM detail + viewable file
-- [ ] A3 → B15 Per-role notifications
+### M3 — Close the workflow gaps  `[~]`
+- [x] A2 done → [ ] B13 MOM detail wiring (route + real data + file viewer)
+- [x] A3 done → [ ] B15 Per-role notifications wiring (real `/api/outbox`)
 - [ ] B5 Review-meeting loop
 - [ ] B6 Resubmit returned claim
 - [ ] B7 Stale-approver/transfer
 - [ ] B8 Receipt archive upload · B9 Transaction history · B14 Approver module merge
 
-### M4 — Correctness & polish  `[ ]`
+### M4 — Correctness & polish  `[~]`
 - [ ] B17 Currency → PHP
-- [ ] A4 Settings tabs · A5 → error boundary (P1-9)
+- [x] A4 Settings tabs (UI) · [ ] persistence · [ ] A5 → error boundary (P1-9)
 - [ ] B12 Remove dead context setters
 
 ### M5 — Production hardening (launch-blocking)  `[ ]`
