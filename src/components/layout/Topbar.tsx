@@ -35,7 +35,8 @@ export function Topbar({ onMenuClick, isCollapsed = false }: TopbarProps) {
     <header className={`h-[64px] fixed top-0 right-0 left-0 flex justify-between items-center px-6 bg-surface dark:bg-surface-container-low border-b border-outline-variant shadow-sm z-10 transition-all duration-300 ${isCollapsed ? 'lg:left-[80px]' : 'lg:left-[220px]'}`}>
       <div className="flex items-center gap-4 flex-1">
         <button 
-          className="lg:hidden p-2 text-on-surface-variant hover:bg-surface-container-high rounded-full focus:ring-2 focus:ring-primary outline-none transition-colors"
+          aria-label="Toggle sidebar"
+          className="lg:hidden p-2 text-on-surface-variant hover:bg-surface-container-high rounded-full focus:ring-2 focus:ring-primary focus-visible:outline-none transition-colors"
           onClick={onMenuClick}
         >
           <span className="material-symbols-outlined">menu</span>
@@ -72,7 +73,8 @@ export function Topbar({ onMenuClick, isCollapsed = false }: TopbarProps) {
         <div className="flex items-center gap-2">
           <div className="relative" ref={dropdownRef}>
             <button 
-              className="relative p-2 text-on-surface-variant hover:text-primary hover:bg-surface-container-high rounded-full transition-colors focus:ring-2 focus:ring-primary outline-none active:opacity-70"
+              aria-label="View notifications"
+              className="relative p-2 text-on-surface-variant hover:text-primary hover:bg-surface-container-high rounded-full transition-colors focus:ring-2 focus:ring-primary focus-visible:outline-none active:opacity-70"
               onClick={() => setShowNotifications(!showNotifications)}
             >
               <span className="material-symbols-outlined">notifications</span>
@@ -81,7 +83,7 @@ export function Topbar({ onMenuClick, isCollapsed = false }: TopbarProps) {
             {showNotifications && (
               <div className="absolute right-0 mt-2 w-80 bg-surface border border-outline-variant rounded-lg shadow-lg overflow-hidden flex flex-col max-h-96">
                 <div className="p-3 border-b border-outline-variant flex justify-between items-center bg-surface-container-low">
-                  <span className="font-semibold text-on-surface text-sm">Notifications</span>
+                  <span className="font-semibold text-on-surface text-sm cursor-pointer hover:text-primary" onClick={() => { setShowNotifications(false); navigate('/notifications'); }}>Notifications</span>
                   {currentUser.role === 'Admin' && (
                     <button onClick={() => navigate('/admin/emails')} className="text-xs text-primary hover:underline">System Emails</button>
                   )}
@@ -98,10 +100,18 @@ export function Topbar({ onMenuClick, isCollapsed = false }: TopbarProps) {
                     ))
                   )}
                 </div>
+                <div className="p-2 border-t border-outline-variant bg-surface-container-lowest text-center">
+                  <button 
+                    onClick={() => { setShowNotifications(false); navigate('/notifications'); }}
+                    className="text-sm font-medium text-primary hover:underline"
+                  >
+                    View All Notifications
+                  </button>
+                </div>
               </div>
             )}
           </div>
-          <button className="hidden sm:block p-2 text-on-surface-variant hover:text-primary hover:bg-surface-container-high rounded-full focus:ring-2 focus:ring-primary outline-none transition-colors cursor-pointer active:opacity-70" onClick={() => navigate('/support')}>
+          <button aria-label="Help and support" className="hidden sm:block p-2 text-on-surface-variant hover:text-primary hover:bg-surface-container-high rounded-full focus:ring-2 focus:ring-primary focus-visible:outline-none transition-colors cursor-pointer active:opacity-70" onClick={() => navigate('/support')}>
             <span className="material-symbols-outlined">help_outline</span>
           </button>
         </div>

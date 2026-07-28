@@ -142,7 +142,7 @@ export function ApprovalQueue() {
         <CardHeader className="bg-surface-container-low/50 border-b border-outline-variant">
           <h4 className="font-headline-md text-on-surface">Pending Your Action</h4>
           <div className="flex items-center gap-2">
-            <button className="p-1.5 hover:bg-outline-variant rounded-lg transition-colors focus:ring-2 focus:ring-primary outline-none" onClick={() => addToast('Filter options opened', 'success')}><span className="material-symbols-outlined text-outline">filter_list</span></button>
+            <button aria-label="Filter" className="p-1.5 hover:bg-outline-variant rounded-lg transition-colors focus:ring-2 focus:ring-primary focus-visible:outline-none" onClick={() => addToast('Filter options opened', 'success')}><span className="material-symbols-outlined text-outline">filter_list</span></button>
           </div>
         </CardHeader>
         <div className="overflow-x-auto">
@@ -169,7 +169,7 @@ export function ApprovalQueue() {
                 const req = users.find(u => u.id === claim.requestorId) || users[0];
                 const aging = getAgingInfo(claim.submittedAt, claim.createdAt);
                 return (
-                  <tr key={claim.id} className={`hover:bg-primary-fixed/20 transition-colors group cursor-pointer ${claim.approverStaleSince ? 'bg-tertiary-container/10' : ''}`} onClick={(e) => {
+                  <tr key={claim.id} className={`hover:bg-primary/5 transition-colors group cursor-pointer ${claim.approverStaleSince ? 'bg-tertiary-container/10' : ''}`} onClick={(e) => {
                     if (!(e.target as HTMLElement).closest('button')) {
                       navigate(`/claims/${claim.id}`);
                     }
@@ -210,7 +210,7 @@ export function ApprovalQueue() {
                       <StatusBadge status={claim.status} />
                     </td>
                     <td className="px-6 py-4 text-right">
-                      <div className="flex justify-end gap-2 opacity-0 group-hover:opacity-100 transition-opacity">
+                      <div className="flex justify-end items-center gap-2">
                         <Button size="sm" variant="outline" className="text-primary border-primary hover:bg-primary/10" onClick={() => handleAction(claim.id, 'approve')}>Approve</Button>
                         {/* Each entity's decision vocabulary is server-enforced and differs:
                             a reimbursement claim takes Approve/Reject/Return; a Cash Advance
@@ -223,6 +223,7 @@ export function ApprovalQueue() {
                         {claim.type !== 'Liquidation' && (
                           <Button size="sm" variant="outline" className="text-error border-error hover:bg-error/10" onClick={() => handleAction(claim.id, 'reject')}>Reject</Button>
                         )}
+                        <span className="material-symbols-outlined text-outline ml-2 group-hover:text-primary transition-colors">chevron_right</span>
                       </div>
                     </td>
                   </tr>

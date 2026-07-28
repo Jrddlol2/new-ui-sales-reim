@@ -23,6 +23,7 @@ import { MOMs } from './pages/shared/MOMs';
 import { Calendar } from './pages/shared/Calendar';
 import { Settings } from './pages/shared/Settings';
 import { Support } from './pages/shared/Support';
+import { Notifications } from './pages/shared/Notifications';
 import { CompanyDirectory } from './pages/admin/CompanyDirectory';
 import { Receipts } from './pages/shared/Receipts';
 import { MasterData } from './pages/admin/MasterData';
@@ -53,6 +54,7 @@ function RoleBasedRouter() {
         {/* Shared */}
         <Route path="/calendar" element={<Calendar />} />
         <Route path="/support" element={<Support />} />
+        <Route path="/notifications" element={<Notifications />} />
         <Route path="/settings" element={<Settings />} />
         
         {/* Approver */}

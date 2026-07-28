@@ -1,13 +1,17 @@
-import { useState, useMemo } from 'react';
+import { useState, useMemo, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Card, CardHeader } from '../../components/ui/Card';
 import { Input } from '../../components/ui/Input';
 import { useAppContext } from '../../components/AppContext';
+import { Pagination } from '../../components/ui/Pagination';
 
 export function MOMs() {
   const navigate = useNavigate();
   const { moms, claims } = useAppContext();
   const [query, setQuery] = useState('');
+  
+  const [currentPage, setCurrentPage] = useState(1);
+  const itemsPerPage = 15;
 
   const filtered = useMemo(() => {
     const q = query.trim().toLowerCase();
@@ -20,6 +24,14 @@ export function MOMs() {
         .some(v => (v || '').toLowerCase().includes(q))
     );
   }, [moms, query]);
+
+  const totalPages = Math.ceil(filtered.length / itemsPerPage);
+  const paginatedMOMs = filtered.slice((currentPage - 1) * itemsPerPage, currentPage * itemsPerPage);
+
+  // Reset page when filters change
+  useEffect(() => {
+    setCurrentPage(1);
+  }, [query]);
 
   const claimRefFor = (claimId?: string) =>
     claimId ? claims.find(c => c.id === claimId)?.ref : undefined;
@@ -70,7 +82,7 @@ export function MOMs() {
                     <p className="font-label-md">{moms.length === 0 ? 'No meeting minutes found.' : 'No minutes match your search.'}</p>
                   </td>
                 </tr>
-              ) : filtered.map(mom => {
+              ) : paginatedMOMs.map(mom => {
                 const ref = claimRefFor(mom.claimId);
                 return (
                   <tr key={mom.id} className="hover:bg-primary-container/5 transition-colors">
@@ -108,6 +120,11 @@ export function MOMs() {
             </tbody>
           </table>
         </div>
+        <Pagination 
+          currentPage={currentPage} 
+          totalPages={totalPages} 
+          onPageChange={setCurrentPage} 
+        />
       </Card>
     </div>
   );

@@ -6,35 +6,35 @@ export function StatusBadge({ status }: { status: ClaimStatus }) {
   
   switch (status) {
     case ClaimStatus.DRAFT:
-      bgColor = 'bg-[#64748B]/10';
-      textColor = 'text-[#64748B]';
+      bgColor = 'bg-slate-500/10';
+      textColor = 'text-slate-700 dark:text-slate-300';
       break;
     case ClaimStatus.SUBMITTED:
     case ClaimStatus.REVIEW_MEETING_SCHEDULED:
-      bgColor = 'bg-[#3B82F6]/10'; // Blue
-      textColor = 'text-[#3B82F6]';
+      bgColor = 'bg-blue-500/10';
+      textColor = 'text-blue-700 dark:text-blue-300';
       break;
     case ClaimStatus.PENDING_APPROVAL:
-      bgColor = 'bg-[#D97706]/10'; // Amber/Orange
-      textColor = 'text-[#D97706]';
+      bgColor = 'bg-amber-500/10';
+      textColor = 'text-amber-800 dark:text-amber-300';
       break;
     case ClaimStatus.APPROVED:
     case ClaimStatus.PROCESSING:
-      bgColor = 'bg-[#8B5CF6]/10'; // Purple
-      textColor = 'text-[#8B5CF6]';
+      bgColor = 'bg-purple-500/10';
+      textColor = 'text-purple-700 dark:text-purple-300';
       break;
     case ClaimStatus.READY_FOR_CLAIM:
     case ClaimStatus.COMPLETED:
-      bgColor = 'bg-[#0D9488]/10'; // Teal
-      textColor = 'text-[#0D9488]';
+      bgColor = 'bg-teal-500/10';
+      textColor = 'text-teal-700 dark:text-teal-300';
       break;
     case ClaimStatus.REJECTED:
-      bgColor = 'bg-[#E11D48]/10'; // Rose/Red
-      textColor = 'text-[#E11D48]';
+      bgColor = 'bg-rose-500/10';
+      textColor = 'text-rose-700 dark:text-rose-300';
       break;
     case ClaimStatus.RETURNED:
-      bgColor = 'bg-[#F59E0B]/10'; // Yellow
-      textColor = 'text-[#F59E0B]';
+      bgColor = 'bg-orange-500/10';
+      textColor = 'text-orange-800 dark:text-orange-300';
       break;
   }
 

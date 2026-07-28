@@ -77,8 +77,8 @@ export function ApproverDashboard() {
         <CardHeader className="bg-surface-container-low/50">
           <h4 className="font-headline-md text-on-surface">Unified Worklist</h4>
           <div className="flex items-center gap-2">
-            <button className="p-1.5 hover:bg-outline-variant rounded-lg transition-colors focus:ring-2 focus:ring-primary outline-none" onClick={() => addToast('Filter options opened', 'success')}><span className="material-symbols-outlined text-outline">filter_list</span></button>
-            <button className="p-1.5 hover:bg-outline-variant rounded-lg transition-colors focus:ring-2 focus:ring-primary outline-none" onClick={() => addToast('Additional options opened', 'success')}><span className="material-symbols-outlined text-outline">more_vert</span></button>
+            <button aria-label="Filter options" className="p-1.5 hover:bg-outline-variant rounded-lg transition-colors focus:ring-2 focus:ring-primary focus-visible:outline-none" onClick={() => addToast('Filter options opened', 'success')}><span className="material-symbols-outlined text-outline">filter_list</span></button>
+            <button aria-label="More options" className="p-1.5 hover:bg-outline-variant rounded-lg transition-colors focus:ring-2 focus:ring-primary focus-visible:outline-none" onClick={() => addToast('Additional options opened', 'success')}><span className="material-symbols-outlined text-outline">more_vert</span></button>
           </div>
         </CardHeader>
         <div className="overflow-x-auto">

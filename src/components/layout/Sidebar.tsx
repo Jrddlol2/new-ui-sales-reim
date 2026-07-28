@@ -16,6 +16,7 @@ const getNavItems = (role: UserRole) => {
       { label: 'MOMs', icon: 'meeting_room', path: '/moms' },
       { label: 'Receipt Archive', icon: 'receipt_long', path: '/receipts' },
       { label: 'Calendar', icon: 'calendar_month', path: '/calendar' },
+      { label: 'Notifications', icon: 'notifications', path: '/notifications' },
       { label: 'Support', icon: 'help', path: '/support' },
       { label: 'Settings', icon: 'settings', path: '/settings' },
     ];
@@ -30,6 +31,7 @@ const getNavItems = (role: UserRole) => {
       { label: 'MOMs', icon: 'meeting_room', path: '/moms' },
       { label: 'Receipt Archive', icon: 'receipt_long', path: '/receipts' },
       { label: 'Calendar', icon: 'calendar_month', path: '/calendar' },
+      { label: 'Notifications', icon: 'notifications', path: '/notifications' },
       { label: 'Support', icon: 'help', path: '/support' },
       { label: 'Settings', icon: 'settings', path: '/settings' },
     ];
@@ -41,6 +43,7 @@ const getNavItems = (role: UserRole) => {
       { label: 'Processing Queue', icon: 'payments', path: '/disbursements' },
       { label: 'Ready to Claim', icon: 'outbox', path: '/ready-to-claim' },
       { label: 'Transaction History', icon: 'history', path: '/transactions' },
+      { label: 'Notifications', icon: 'notifications', path: '/notifications' },
       { label: 'Support', icon: 'help', path: '/support' },
       { label: 'Settings', icon: 'settings', path: '/settings' },
     ];
@@ -57,6 +60,7 @@ const getNavItems = (role: UserRole) => {
       { label: 'Admin Reporting', icon: 'bar_chart', path: '/admin/reports' },
       { label: 'Audit Log', icon: 'gavel', path: '/admin/audit' },
       { label: 'System Emails', icon: 'mail', path: '/admin/emails' },
+      { label: 'Notifications', icon: 'notifications', path: '/notifications' },
       { label: 'Support', icon: 'help', path: '/support' },
       { label: 'Settings', icon: 'settings', path: '/settings' },
     ];
@@ -152,7 +156,7 @@ export function Sidebar({ isOpen, onClose, isCollapsed = false, onToggleCollapse
           </div>
 
           {/* Mobile Close Button */}
-          <button className="lg:hidden absolute right-4 text-white/80 hover:text-white focus:ring-2 focus:ring-white outline-none rounded p-1" onClick={onClose}>
+          <button aria-label="Close sidebar" className="lg:hidden absolute right-4 text-white/80 hover:text-white focus:ring-2 focus:ring-white focus-visible:outline-none rounded p-1" onClick={onClose}>
             <span className="material-symbols-outlined">close</span>
           </button>
         </div>
@@ -161,7 +165,8 @@ export function Sidebar({ isOpen, onClose, isCollapsed = false, onToggleCollapse
         {onToggleCollapse && (
           <button 
             onClick={onToggleCollapse}
-            className="hidden lg:flex items-center justify-center w-8 h-8 rounded-full bg-white text-[#1A5BDB] shadow-lg hover:bg-slate-50 hover:scale-110 active:scale-95 border border-blue-200 transition-all absolute -right-4 top-1/2 -translate-y-1/2 z-40 focus:outline-none focus:ring-2 focus:ring-primary"
+            aria-label={isCollapsed ? "Expand sidebar" : "Collapse sidebar"}
+            className="hidden lg:flex items-center justify-center w-8 h-8 rounded-full bg-white text-[#1A5BDB] shadow-lg hover:bg-slate-50 hover:scale-110 active:scale-95 border border-blue-200 transition-all absolute -right-4 top-1/2 -translate-y-1/2 z-40 focus-visible:outline-none focus:ring-2 focus:ring-primary"
             title={isCollapsed ? "Expand sidebar" : "Collapse sidebar"}
           >
             <span className="material-symbols-outlined text-[20px] font-bold">
