@@ -32,6 +32,7 @@ export function Calendar() {
 
   const { year, month } = cursor;
   const today = new Date();
+  const isCurrentMonth = year === today.getFullYear() && month === today.getMonth();
 
   // Group meetings by 'YYYY-M-D' so each day cell can look up its own events.
   const byDay = useMemo<Record<string, ReviewMeeting[]>>(() => {
@@ -140,7 +141,14 @@ export function Calendar() {
               <button onClick={() => step(-1)} className="p-1.5 rounded-lg hover:bg-outline-variant transition-colors" title="Previous month">
                 <span className="material-symbols-outlined text-outline">chevron_left</span>
               </button>
-              <button onClick={() => setCursor({ year: today.getFullYear(), month: today.getMonth() })} className="px-3 py-1 rounded-lg text-sm font-label-sm hover:bg-outline-variant transition-colors">Today</button>
+              <button
+                onClick={() => setCursor({ year: today.getFullYear(), month: today.getMonth() })}
+                disabled={isCurrentMonth}
+                title={isCurrentMonth ? "You're viewing the current month" : 'Jump to the current month'}
+                className={`px-3 py-1 rounded-lg text-sm font-label-sm transition-colors ${isCurrentMonth ? 'text-outline/40 cursor-default' : 'hover:bg-outline-variant'}`}
+              >
+                Today
+              </button>
               <button onClick={() => step(1)} className="p-1.5 rounded-lg hover:bg-outline-variant transition-colors" title="Next month">
                 <span className="material-symbols-outlined text-outline">chevron_right</span>
               </button>

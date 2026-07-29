@@ -4277,6 +4277,14 @@ You'll receive another email as soon as a decision is made.`
     mkMomAndClaim('u15', 'u16', 'Client Meals', 4200, ClaimStatus.READY_FOR_CLAIM, 6);
     mkMomAndClaim('u17', 'u18', 'Office Supplies', 6000, ClaimStatus.READY_FOR_CLAIM, 7);
     mkMomAndClaim('u17', 'u18', 'Equipment Repair', 9500, ClaimStatus.COMPLETED, 12);
+    // A few more still-undecided claims, spread across different approvers,
+    // so there's real material for upcoming (not-yet-happened) review
+    // meetings below -- otherwise almost nothing in this seed is still
+    // awaiting a decision and the Calendar's current month looks empty.
+    mkMomAndClaim('u1', 'u2', 'Client Meals', 3800, ClaimStatus.PENDING_APPROVAL, 1);
+    mkMomAndClaim('u6', 'u2', 'Travel', 7200, ClaimStatus.PENDING_APPROVAL, 2);
+    mkMomAndClaim('u11', 'u10', 'Transportation', 2100, ClaimStatus.PENDING_APPROVAL, 3);
+    mkMomAndClaim('u20', 'u14', 'Event Hosting', 9800, ClaimStatus.PENDING_APPROVAL, 1);
     }
 
     if (options.demoCashAdvances) {
@@ -4559,16 +4567,21 @@ You'll receive another email as soon as a decision is made.`
         'Approver has a scheduling conflict, needs a new time.',
         'Client meeting ran long, review pushed to another day.'
       ];
-      const rmStatusCycle = [
-        ReviewMeetingStatus.CONFIRMED,
+      // Pre-meeting statuses (anything but Confirmed) only make sense for a
+      // meeting that hasn't happened yet -- nothing in the live system ever
+      // sets Completed, so once the date is in the past, Confirmed is the
+      // only outcome that stays coherent with an already-decided claim.
+      const UPCOMING_STATUS_CYCLE = [
         ReviewMeetingStatus.CONFIRMED,
         ReviewMeetingStatus.PENDING_CONFIRMATION,
         ReviewMeetingStatus.CONFIRMED,
         ReviewMeetingStatus.DECLINE_REQUESTED
       ];
       const rmCandidates = claims.filter(c => c.status !== ClaimStatus.DRAFT);
-      const rmCount = Math.min(12, rmCandidates.length);
+      const rmCount = Math.min(16, rmCandidates.length);
       const rmStep = rmCount > 0 ? Math.max(1, Math.floor(rmCandidates.length / rmCount)) : 0;
+
+      let upcomingAssigned = 0;
 
       for (let i = 0; i < rmCount; i++) {
         const claim = rmCandidates[i * rmStep];
@@ -4577,10 +4590,26 @@ You'll receive another email as soon as a decision is made.`
         const alreadyHasMeeting = reviewMeetings.some(rm => rm.claim_id === claim.id);
         if (alreadyHasMeeting) continue;
 
-        const rmStatus = rmStatusCycle[i % rmStatusCycle.length];
-        const claimAgeDays = Math.max(1, Math.round((Date.now() - new Date(claim.created_at).getTime()) / (1000 * 60 * 60 * 24)));
-        const meetingDaysAgo = Math.max(0, claimAgeDays - 1);
-        const meetingDate = rDate(meetingDaysAgo).split('T')[0];
+        // Only a claim still awaiting a decision can coherently have a
+        // review meeting that hasn't happened yet; anything already
+        // Approved/Rejected/Processing/etc. necessarily had its meeting
+        // (if any) already, and that meeting can only have gone one way.
+        const isUndecided = claim.status === ClaimStatus.PENDING_APPROVAL;
+
+        let meetingDate: string;
+        let rmStatus: ReviewMeetingStatus;
+
+        if (isUndecided) {
+          upcomingAssigned++;
+          const daysAhead = upcomingAssigned * 2 - 1; // 1, 3, 5, 7... days out
+          meetingDate = rDate(-daysAhead).split('T')[0];
+          rmStatus = UPCOMING_STATUS_CYCLE[upcomingAssigned % UPCOMING_STATUS_CYCLE.length];
+        } else {
+          const claimAgeDays = Math.max(1, Math.round((Date.now() - new Date(claim.created_at).getTime()) / (1000 * 60 * 60 * 24)));
+          const meetingDaysAgo = Math.max(1, claimAgeDays - 1);
+          meetingDate = rDate(meetingDaysAgo).split('T')[0];
+          rmStatus = ReviewMeetingStatus.CONFIRMED;
+        }
 
         const rm: ReviewMeeting = {
           id: uuidv4(),
