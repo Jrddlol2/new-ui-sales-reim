@@ -91,6 +91,12 @@ export function Payouts() {
                   <span className="text-body-sm text-outline">via {claim.paymentMethod}</span>
                 )}
               </div>
+              {claim.releaseCode && (
+                <div className="flex items-center justify-between px-3 py-2 rounded-lg bg-surface-container-low border border-outline-variant">
+                  <span className="text-body-sm text-outline">Release code</span>
+                  <span className="font-mono-data text-sm tracking-widest text-on-surface">{claim.releaseCode}</span>
+                </div>
+              )}
               <Button className="w-full gap-2" onClick={() => openModal(claim)}>
                 <span className="material-symbols-outlined text-[18px]">key</span>
                 Enter Code to Claim

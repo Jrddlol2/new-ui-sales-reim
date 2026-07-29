@@ -289,6 +289,23 @@ export function ClaimDetail() {
         </div>
 
         <div className="col-span-12 lg:col-span-4 flex flex-col gap-8">
+          {canConfirmReceipt && claim.releaseCode && (
+            <Card className="border-primary/30 bg-primary-container/20">
+              <CardContent className="p-6">
+                <div className="flex items-center gap-2 mb-2">
+                  <span className="material-symbols-outlined text-primary">key</span>
+                  <h3 className="font-headline-md text-on-surface">Release Code</h3>
+                </div>
+                <p className="text-body-sm text-on-surface-variant mb-4">
+                  The custodian released your payout. Enter this code below to confirm receipt.
+                </p>
+                <p className="font-mono-data text-2xl tracking-widest text-center bg-surface-container-lowest border border-outline-variant rounded-lg py-3">
+                  {claim.releaseCode}
+                </p>
+              </CardContent>
+            </Card>
+          )}
+
           <Card className="flex-1">
             <CardContent className="p-6">
               <div className="flex items-center gap-2 mb-6">

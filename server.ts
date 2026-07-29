@@ -3714,7 +3714,7 @@ You'll receive another email as soon as a decision is made.`
                 sendEmail(
                   opts.requestorId,
                   `Reimbursement Ready to Claim - ${claimNumber}`,
-                  `Your reimbursement of PHP ${opts.amount} is ready. Please view your claim details to retrieve your release code and claim your funds.`,
+                  `Your reimbursement of PHP ${opts.amount} is ready.\n\nEnter code ${claim.release_code} to confirm receipt and complete your claim.`,
                   undefined,
                   { timestamp: processedAt }
                 );
@@ -4272,6 +4272,9 @@ You'll receive another email as soon as a decision is made.`
     mkMomAndClaim('u15', 'u16', 'Software Licenses', 8500, ClaimStatus.PROCESSING, 5);
     mkMomAndClaim('u15', 'u16', 'Cloud Hosting', 12000, ClaimStatus.COMPLETED, 20);
     mkMomAndClaim('u15', 'u16', 'Team Lunch', 4500, ClaimStatus.REJECTED, 3);
+    // Guarantees the default demo login (Olivia, u15) always has a payout to
+    // test the release-code confirm flow with, without hunting through seed data.
+    mkMomAndClaim('u15', 'u16', 'Client Meals', 4200, ClaimStatus.READY_FOR_CLAIM, 6);
     mkMomAndClaim('u17', 'u18', 'Office Supplies', 6000, ClaimStatus.READY_FOR_CLAIM, 7);
     mkMomAndClaim('u17', 'u18', 'Equipment Repair', 9500, ClaimStatus.COMPLETED, 12);
     }
