@@ -1,6 +1,6 @@
 ﻿import React from "react";
 import { useState, useRef } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useSearchParams } from 'react-router-dom';
 import { Button } from '../../components/ui/Button';
 import { Input, Select, Label } from '../../components/ui/Input';
 import { Card, CardHeader, CardContent } from '../../components/ui/Card';
@@ -12,13 +12,21 @@ import { MinutesSource, ClaimStatus } from '../../types';
 import { submitClaimFlow, submitCashAdvanceFlow, submitLiquidationFlow, DraftLineItem } from '../../lib/api';
 import { formatMoney } from '../../lib/money';
 
+const TYPE_PARAM_MAP: Record<string, 'Reimbursement' | 'Cash Advance' | 'Liquidation'> = {
+  reimbursement: 'Reimbursement',
+  advance: 'Cash Advance',
+  liquidation: 'Liquidation',
+};
+
 export function SubmitClaim() {
   const navigate = useNavigate();
   const { currentUser, fieldDefinitions, users, claims, companies, refresh } = useAppContext();
   const { addToast } = useToast();
+  const [searchParams] = useSearchParams();
+  const typeFromQuery = TYPE_PARAM_MAP[searchParams.get('type') ?? ''];
 
-  const [claimType, setClaimType] = useState<'Reimbursement' | 'Cash Advance' | 'Liquidation'>('Reimbursement');
-  const [step, setStep] = useState(0); // Step 0 is Type Selection
+  const [claimType, setClaimType] = useState<'Reimbursement' | 'Cash Advance' | 'Liquidation'>(typeFromQuery ?? 'Reimbursement');
+  const [step, setStep] = useState(typeFromQuery ? 1 : 0); // Step 0 is Type Selection
   const [loading, setLoading] = useState(false);
   const momFileInputRef = useRef<HTMLInputElement>(null);
 
