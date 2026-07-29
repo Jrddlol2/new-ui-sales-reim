@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useMemo, useState } from 'react';
 import { Card, CardHeader, CardContent } from '../../components/ui/Card';
 import { Button } from '../../components/ui/Button';
 import { Select } from '../../components/ui/Input';
@@ -6,7 +6,36 @@ import { useAppContext } from '../../components/AppContext';
 import { useToast } from '../../components/shared/ToastContext';
 import { ResponsiveContainer, BarChart, Bar, XAxis, YAxis, Tooltip, PieChart, Pie, Cell, Legend } from 'recharts';
 import { formatMoney } from '../../lib/money';
-import { ClaimStatus } from '../../types';
+import { ClaimStatus, UserRole } from '../../types';
+
+// Design-token hex values (see index.css @theme) -- not an arbitrary rainbow.
+// Colors carry meaning: blue family = normal progress, orange = needs
+// attention, red = rejected, grey = still waiting on someone.
+const COLOR_PRIMARY = '#004ac6';
+const COLOR_PRIMARY_CONTAINER = '#2563eb';
+const COLOR_SECONDARY = '#565e74';
+const COLOR_TERTIARY = '#943700';
+const COLOR_ERROR = '#ba1a1a';
+
+const STATUS_COLOR: Partial<Record<ClaimStatus, string>> = {
+  [ClaimStatus.DRAFT]: '#9ca3af',
+  [ClaimStatus.SUBMITTED]: COLOR_SECONDARY,
+  [ClaimStatus.PENDING_APPROVAL]: COLOR_SECONDARY,
+  [ClaimStatus.REVIEW_MEETING_SCHEDULED]: COLOR_SECONDARY,
+  [ClaimStatus.APPROVED]: COLOR_PRIMARY_CONTAINER,
+  [ClaimStatus.PROCESSING]: COLOR_PRIMARY_CONTAINER,
+  [ClaimStatus.READY_FOR_CLAIM]: COLOR_PRIMARY_CONTAINER,
+  [ClaimStatus.RELEASED]: COLOR_PRIMARY_CONTAINER,
+  [ClaimStatus.REVIEWED]: COLOR_PRIMARY_CONTAINER,
+  [ClaimStatus.COMPLETED]: COLOR_PRIMARY,
+  [ClaimStatus.LIQUIDATED]: COLOR_PRIMARY,
+  [ClaimStatus.CLOSED]: COLOR_PRIMARY,
+  [ClaimStatus.RETURNED]: COLOR_TERTIARY,
+  [ClaimStatus.REJECTED]: COLOR_ERROR,
+};
+
+const TOP_N_REQUESTORS = 10;
+const APPROVAL_SLA_DAYS = 2;
 
 export function AdminReporting() {
   const { claims, lineItems, users, statusHistory } = useAppContext();
@@ -15,81 +44,79 @@ export function AdminReporting() {
   const [dateRange, setDateRange] = useState<'30d' | '90d' | 'all'>('all');
   const [claimTypeFilter, setClaimTypeFilter] = useState<'All' | 'Reimbursement' | 'CashAdvance' | 'Liquidation'>('All');
 
-  // Filter claims
-  const filteredClaims = claims.filter(c => {
+  const filteredClaims = useMemo(() => claims.filter(c => {
     if (claimTypeFilter !== 'All' && c.type !== claimTypeFilter) return false;
-    if (dateRange === '30d') {
+    if (dateRange === '30d' || dateRange === '90d') {
+      const days = dateRange === '30d' ? 30 : 90;
       const d = new Date(c.createdAt);
-      const now = new Date();
-      return (now.getTime() - d.getTime()) <= 30 * 24 * 60 * 60 * 1000;
-    }
-    if (dateRange === '90d') {
-      const d = new Date(c.createdAt);
-      const now = new Date();
-      return (now.getTime() - d.getTime()) <= 90 * 24 * 60 * 60 * 1000;
+      return (Date.now() - d.getTime()) <= days * 24 * 60 * 60 * 1000;
     }
     return true;
-  });
+  }), [claims, claimTypeFilter, dateRange]);
 
-  // Category distribution
-  const categoryTotals: Record<string, number> = {};
-  lineItems.forEach(item => {
-    const parent = claims.find(c => c.id === item.claimId);
-    if (parent && filteredClaims.some(fc => fc.id === parent.id)) {
-      categoryTotals[item.category] = (categoryTotals[item.category] || 0) + item.amount;
-    }
-  });
+  const filteredClaimIds = useMemo(() => new Set(filteredClaims.map(c => c.id)), [filteredClaims]);
+  const filteredLineItems = useMemo(() => lineItems.filter(li => filteredClaimIds.has(li.claimId)), [lineItems, filteredClaimIds]);
 
-  const categoryChartData = Object.entries(categoryTotals).map(([name, value]) => ({
-    name,
-    amount: Number(value.toFixed(2))
-  }));
+  const categoryChartData = useMemo(() => {
+    const totals: Record<string, number> = {};
+    filteredLineItems.forEach(item => { totals[item.category] = (totals[item.category] || 0) + item.amount; });
+    return Object.entries(totals)
+      .map(([name, value]) => ({ name, amount: Number(value.toFixed(2)) }))
+      .sort((a, b) => b.amount - a.amount);
+  }, [filteredLineItems]);
 
-  // Status distribution
-  const statusCounts: Record<string, number> = {};
-  filteredClaims.forEach(c => {
-    statusCounts[c.status] = (statusCounts[c.status] || 0) + 1;
-  });
+  const statusChartData = useMemo(() => {
+    const counts: Record<string, number> = {};
+    filteredClaims.forEach(c => { counts[c.status] = (counts[c.status] || 0) + 1; });
+    return Object.entries(counts).map(([name, count]) => ({ name, count }));
+  }, [filteredClaims]);
 
-  const statusChartData = Object.entries(statusCounts).map(([name, count]) => ({
-    name,
-    count
-  }));
+  const userSpendChartData = useMemo(() => {
+    const spend: Record<string, number> = {};
+    filteredClaims.forEach(c => {
+      const requestor = users.find(u => u.id === c.requestorId)?.name || c.requestorId;
+      spend[requestor] = (spend[requestor] || 0) + c.total;
+    });
+    return Object.entries(spend)
+      .map(([name, amount]) => ({ name, amount: Number(amount.toFixed(2)) }))
+      .sort((a, b) => b.amount - a.amount)
+      .slice(0, TOP_N_REQUESTORS);
+  }, [filteredClaims, users]);
 
-  // Spend by User / Department
-  const userSpend: Record<string, number> = {};
-  filteredClaims.forEach(c => {
-    const requestor = users.find(u => u.id === c.requestorId)?.name || c.requestorId;
-    userSpend[requestor] = (userSpend[requestor] || 0) + c.total;
-  });
+  const departmentChartData = useMemo(() => {
+    const spend: Record<string, number> = {};
+    filteredClaims.forEach(c => {
+      const dept = users.find(u => u.id === c.requestorId)?.department || 'Unknown';
+      spend[dept] = (spend[dept] || 0) + c.total;
+    });
+    return Object.entries(spend)
+      .map(([name, amount]) => ({ name, amount: Number(amount.toFixed(2)) }))
+      .sort((a, b) => b.amount - a.amount);
+  }, [filteredClaims, users]);
 
-  const userSpendChartData = Object.entries(userSpend).map(([name, amount]) => ({
-    name,
-    amount: Number(amount.toFixed(2))
-  }));
+  // Avg approval turnaround, computed only from claims that actually have
+  // both a submission and a decision timestamp in this filter's scope --
+  // no fallback number when there's nothing to compute from.
+  const avgTurnaroundDays = useMemo(() => {
+    let totalDays = 0;
+    let count = 0;
+    filteredClaims.forEach(c => {
+      const history = statusHistory.filter(h => h.claimId === c.id);
+      const submitted = history.find(h => h.newStatus === ClaimStatus.SUBMITTED || h.newStatus === ClaimStatus.PENDING_APPROVAL);
+      const decided = history.find(h => h.newStatus === ClaimStatus.APPROVED || h.newStatus === ClaimStatus.READY_FOR_CLAIM || h.newStatus === ClaimStatus.REJECTED);
+      if (submitted && decided) {
+        const diffDays = (new Date(decided.timestamp).getTime() - new Date(submitted.timestamp).getTime()) / (1000 * 60 * 60 * 24);
+        if (diffDays >= 0) { totalDays += diffDays; count++; }
+      }
+    });
+    return count > 0 ? totalDays / count : null;
+  }, [filteredClaims, statusHistory]);
 
-  // Turnaround Time calculation
-  let totalApprovalDays = 0;
-  let approvalCount = 0;
+  const requestorApproverCount = useMemo(
+    () => users.filter(u => u.role === UserRole.REQUESTOR || u.role === UserRole.APPROVER).length,
+    [users]
+  );
 
-  claims.forEach(c => {
-    const history = statusHistory.filter(h => h.claimId === c.id);
-    const submitted = history.find(h => h.newStatus === 'Submitted');
-    const approved = history.find(h => h.newStatus === ClaimStatus.APPROVED || h.newStatus === ClaimStatus.READY_FOR_CLAIM);
-
-    if (submitted && approved) {
-      const diffMs = new Date(approved.timestamp).getTime() - new Date(submitted.timestamp).getTime();
-      const diffDays = diffMs / (1000 * 60 * 60 * 24);
-      totalApprovalDays += Math.max(0.2, diffDays);
-      approvalCount++;
-    }
-  });
-
-  const avgTurnaroundDays = approvalCount > 0 ? (totalApprovalDays / approvalCount).toFixed(1) : '1.4';
-
-  const COLORS = ['#0088FE', '#00C49F', '#FFBB28', '#FF8042', '#8884d8', '#82ca9d'];
-
-  // Export to CSV
   const handleExportCSV = () => {
     const headers = ['Claim ID', 'Reference', 'Type', 'Requestor', 'Purpose', 'Total Amount', 'Status', 'Created Date'];
     const rows = filteredClaims.map(c => [
@@ -122,7 +149,7 @@ export function AdminReporting() {
       <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
         <div>
           <h1 className="font-display text-display text-on-surface">Admin Reporting & Analytics</h1>
-          <p className="text-body-md text-outline mt-1">Real-time expenditure analysis, compliance metrics, and audit exports.</p>
+          <p className="text-body-md text-outline mt-1">Expenditure analysis, compliance metrics, and audit exports.</p>
         </div>
         <Button className="gap-2" onClick={handleExportCSV}>
           <span className="material-symbols-outlined">download</span> Export Claims CSV
@@ -160,20 +187,24 @@ export function AdminReporting() {
 
         <Card className="p-6 bg-surface-container-low">
           <p className="text-xs font-bold uppercase tracking-wider text-outline mb-1">Avg Approval Turnaround</p>
-          <p className="font-mono-data text-2xl font-bold text-on-surface">{avgTurnaroundDays} Days</p>
-          <p className="text-[11px] text-green-600 mt-1">Within target 2-day SLA</p>
+          <p className="font-mono-data text-2xl font-bold text-on-surface">
+            {avgTurnaroundDays === null ? '—' : `${avgTurnaroundDays.toFixed(1)} Days`}
+          </p>
+          <p className={`text-[11px] mt-1 ${avgTurnaroundDays === null ? 'text-outline' : avgTurnaroundDays <= APPROVAL_SLA_DAYS ? 'text-green-600' : 'text-error'}`}>
+            {avgTurnaroundDays === null ? 'No decided claims in range' : avgTurnaroundDays <= APPROVAL_SLA_DAYS ? `Within ${APPROVAL_SLA_DAYS}-day target` : `Over ${APPROVAL_SLA_DAYS}-day target`}
+          </p>
         </Card>
 
         <Card className="p-6 bg-surface-container-low">
-          <p className="text-xs font-bold uppercase tracking-wider text-outline mb-1">Active Line Items</p>
-          <p className="font-mono-data text-2xl font-bold text-on-surface">{lineItems.length}</p>
-          <p className="text-[11px] text-outline mt-1">Logged expense items</p>
+          <p className="text-xs font-bold uppercase tracking-wider text-outline mb-1">Line Items in Range</p>
+          <p className="font-mono-data text-2xl font-bold text-on-surface">{filteredLineItems.length}</p>
+          <p className="text-[11px] text-outline mt-1">Logged expense items matching filter</p>
         </Card>
 
         <Card className="p-6 bg-surface-container-low">
-          <p className="text-xs font-bold uppercase tracking-wider text-outline mb-1">System Users</p>
-          <p className="font-mono-data text-2xl font-bold text-on-surface">{users.length}</p>
-          <p className="text-[11px] text-outline mt-1">Active requestors & approvers</p>
+          <p className="text-xs font-bold uppercase tracking-wider text-outline mb-1">Requestors &amp; Approvers</p>
+          <p className="font-mono-data text-2xl font-bold text-on-surface">{requestorApproverCount}</p>
+          <p className="text-[11px] text-outline mt-1">Of {users.length} total system accounts</p>
         </Card>
       </div>
 
@@ -189,11 +220,11 @@ export function AdminReporting() {
               <div className="h-full flex items-center justify-center text-outline">No expense items to chart</div>
             ) : (
               <ResponsiveContainer width="100%" height="100%">
-                <BarChart data={categoryChartData}>
-                  <XAxis dataKey="name" stroke="#888888" fontSize={12} />
-                  <YAxis stroke="#888888" fontSize={12} tickFormatter={val => formatMoney(val)} />
+                <BarChart data={categoryChartData} margin={{ bottom: 24 }}>
+                  <XAxis dataKey="name" stroke="#888888" fontSize={11} angle={-30} textAnchor="end" interval={0} />
+                  <YAxis stroke="#888888" fontSize={12} tickFormatter={val => formatMoney(val)} width={70} />
                   <Tooltip formatter={(value: any) => [formatMoney(value), 'Amount']} />
-                  <Bar dataKey="amount" fill="#3b82f6" radius={[4, 4, 0, 0]} />
+                  <Bar dataKey="amount" fill={COLOR_PRIMARY} radius={[4, 4, 0, 0]} />
                 </BarChart>
               </ResponsiveContainer>
             )}
@@ -203,18 +234,39 @@ export function AdminReporting() {
         {/* User Spend */}
         <Card>
           <CardHeader className="bg-surface-container-low border-b border-outline-variant">
-            <h3 className="font-headline-sm text-on-surface">Expenditure by Requestor</h3>
+            <h3 className="font-headline-sm text-on-surface">Top {TOP_N_REQUESTORS} Requestors by Spend</h3>
           </CardHeader>
           <CardContent className="p-6 h-80">
             {userSpendChartData.length === 0 ? (
               <div className="h-full flex items-center justify-center text-outline">No requestor spend to chart</div>
             ) : (
               <ResponsiveContainer width="100%" height="100%">
-                <BarChart data={userSpendChartData} layout="vertical">
+                <BarChart data={userSpendChartData} layout="vertical" margin={{ left: 8 }}>
                   <XAxis type="number" stroke="#888888" fontSize={12} tickFormatter={val => formatMoney(val)} />
-                  <YAxis type="category" dataKey="name" stroke="#888888" fontSize={12} width={100} />
+                  <YAxis type="category" dataKey="name" stroke="#888888" fontSize={11} width={110} interval={0} />
                   <Tooltip formatter={(value: any) => [formatMoney(value), 'Total Spend']} />
-                  <Bar dataKey="amount" fill="#10b981" radius={[0, 4, 4, 0]} />
+                  <Bar dataKey="amount" fill={COLOR_TERTIARY} radius={[0, 4, 4, 0]} />
+                </BarChart>
+              </ResponsiveContainer>
+            )}
+          </CardContent>
+        </Card>
+
+        {/* Department Spend */}
+        <Card>
+          <CardHeader className="bg-surface-container-low border-b border-outline-variant">
+            <h3 className="font-headline-sm text-on-surface">Expenditure by Department</h3>
+          </CardHeader>
+          <CardContent className="p-6 h-80">
+            {departmentChartData.length === 0 ? (
+              <div className="h-full flex items-center justify-center text-outline">No department spend to chart</div>
+            ) : (
+              <ResponsiveContainer width="100%" height="100%">
+                <BarChart data={departmentChartData} margin={{ bottom: 8 }}>
+                  <XAxis dataKey="name" stroke="#888888" fontSize={12} />
+                  <YAxis stroke="#888888" fontSize={12} tickFormatter={val => formatMoney(val)} width={70} />
+                  <Tooltip formatter={(value: any) => [formatMoney(value), 'Amount']} />
+                  <Bar dataKey="amount" fill={COLOR_SECONDARY} radius={[4, 4, 0, 0]} />
                 </BarChart>
               </ResponsiveContainer>
             )}
@@ -222,30 +274,35 @@ export function AdminReporting() {
         </Card>
 
         {/* Status Distribution */}
-        <Card className="lg:col-span-2">
+        <Card>
           <CardHeader className="bg-surface-container-low border-b border-outline-variant">
             <h3 className="font-headline-sm text-on-surface">Claim Distribution by Status</h3>
           </CardHeader>
           <CardContent className="p-6 h-80">
-            <ResponsiveContainer width="100%" height="100%">
-              <PieChart>
-                <Pie
-                  data={statusChartData}
-                  dataKey="count"
-                  nameKey="name"
-                  cx="50%"
-                  cy="50%"
-                  outerRadius={100}
-                  label={({ name, percent }) => `${name}: ${((percent ?? 0) * 100).toFixed(0)}%`}
-                >
-                  {statusChartData.map((entry, index) => (
-                    <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />
-                  ))}
-                </Pie>
-                <Tooltip />
-                <Legend />
-              </PieChart>
-            </ResponsiveContainer>
+            {statusChartData.length === 0 ? (
+              <div className="h-full flex items-center justify-center text-outline">No claims to chart</div>
+            ) : (
+              <ResponsiveContainer width="100%" height="100%">
+                <PieChart>
+                  <Pie
+                    data={statusChartData}
+                    dataKey="count"
+                    nameKey="name"
+                    cx="50%"
+                    cy="50%"
+                    innerRadius={55}
+                    outerRadius={90}
+                    paddingAngle={2}
+                  >
+                    {statusChartData.map((entry) => (
+                      <Cell key={entry.name} fill={STATUS_COLOR[entry.name as ClaimStatus] || '#9ca3af'} />
+                    ))}
+                  </Pie>
+                  <Tooltip formatter={(value: any, _name, item: any) => [`${value} claim${value === 1 ? '' : 's'}`, item?.payload?.name]} />
+                  <Legend wrapperStyle={{ fontSize: 12 }} />
+                </PieChart>
+              </ResponsiveContainer>
+            )}
           </CardContent>
         </Card>
       </div>
