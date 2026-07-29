@@ -195,7 +195,7 @@ export function Receipts() {
             </div>
             <div className="bg-surface-container-low border border-outline-variant rounded-lg p-8 flex flex-col items-center justify-center min-h-[260px]">
               {(() => {
-                const url = uploadUrl(selectedReceipt.fileUrl);
+                const url = uploadUrl(selectedReceipt.fileUrl) ?? '';
                 if (url.startsWith('data:image') || url.startsWith('blob:') || url.match(/\.(jpeg|jpg|gif|png)($|\?)/i)) {
                   return <img src={url} alt="Receipt preview" className="max-h-64 object-contain rounded" />;
                 }

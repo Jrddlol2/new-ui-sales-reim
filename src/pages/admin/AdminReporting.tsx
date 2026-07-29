@@ -6,6 +6,7 @@ import { useAppContext } from '../../components/AppContext';
 import { useToast } from '../../components/shared/ToastContext';
 import { ResponsiveContainer, BarChart, Bar, XAxis, YAxis, Tooltip, PieChart, Pie, Cell, Legend } from 'recharts';
 import { formatMoney } from '../../lib/money';
+import { ClaimStatus } from '../../types';
 
 export function AdminReporting() {
   const { claims, lineItems, users, statusHistory } = useAppContext();
@@ -74,7 +75,7 @@ export function AdminReporting() {
   claims.forEach(c => {
     const history = statusHistory.filter(h => h.claimId === c.id);
     const submitted = history.find(h => h.newStatus === 'Submitted');
-    const approved = history.find(h => h.newStatus === 'Approved' || h.newStatus === 'ReadyForClaim');
+    const approved = history.find(h => h.newStatus === ClaimStatus.APPROVED || h.newStatus === ClaimStatus.READY_FOR_CLAIM);
 
     if (submitted && approved) {
       const diffMs = new Date(approved.timestamp).getTime() - new Date(submitted.timestamp).getTime();
@@ -235,7 +236,7 @@ export function AdminReporting() {
                   cx="50%"
                   cy="50%"
                   outerRadius={100}
-                  label={({ name, percent }) => `${name}: ${(percent * 100).toFixed(0)}%`}
+                  label={({ name, percent }) => `${name}: ${((percent ?? 0) * 100).toFixed(0)}%`}
                 >
                   {statusChartData.map((entry, index) => (
                     <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />

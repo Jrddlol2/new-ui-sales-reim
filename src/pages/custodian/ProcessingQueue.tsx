@@ -16,7 +16,6 @@ export function ProcessingQueue() {
   const processingClaims = claims.filter(c =>
     (c.status === ClaimStatus.APPROVED) ||
     (c.status === ClaimStatus.PROCESSING) ||
-    (c.type === 'Cash Advance' && c.status === ClaimStatus.APPROVED) ||
     // A Liquidation only reaches the custodian once an Approver has reviewed
     // it (Submitted -> Reviewed) and a refund is actually owed back — settled
     // or reimbursement-due liquidations are closed automatically server-side.

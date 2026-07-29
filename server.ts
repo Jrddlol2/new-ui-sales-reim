@@ -1166,7 +1166,7 @@ If no action is taken within ${STALE_APPROVER_FALLBACK_DAYS} days, this will be 
       hasAccess = mom.requestor_id === user.id;
     } else if (user.role === UserRole.APPROVER) {
       const reporteeIds = users.filter(u => u.reports_to === user.id).map(u => u.id);
-      hasAccess = mom.requestor_id === user.id || (mom.requestor_id && reporteeIds.includes(mom.requestor_id));
+      hasAccess = mom.requestor_id === user.id || !!(mom.requestor_id && reporteeIds.includes(mom.requestor_id));
     }
 
     if (!hasAccess) {

@@ -286,22 +286,6 @@ export function ClaimDetail() {
         </div>
 
         <div className="col-span-12 lg:col-span-4 flex flex-col gap-8">
-          <Card>
-            <CardContent className="p-6">
-              <h3 className="font-label-md text-on-surface-variant uppercase tracking-wider mb-4">Policy Compliance</h3>
-              <div className="space-y-4">
-                <div className="flex justify-between items-center">
-                  <span className="font-body-base text-on-surface">Flight Class</span>
-                  <span className="material-symbols-outlined text-green-500">check_circle</span>
-                </div>
-                <div className="flex justify-between items-center">
-                  <span className="font-body-base text-on-surface">Per Diem Meal</span>
-                  <span className="material-symbols-outlined text-amber-500">warning</span>
-                </div>
-              </div>
-            </CardContent>
-          </Card>
-          
           <Card className="flex-1">
             <CardContent className="p-6">
               <div className="flex items-center gap-2 mb-6">

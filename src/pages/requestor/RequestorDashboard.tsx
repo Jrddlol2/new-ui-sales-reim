@@ -166,28 +166,6 @@ export function RequestorDashboard() {
               )}
             </div>
           </div>
-
-          <Card>
-            <CardContent className="p-6">
-              <h4 className="font-label-md text-on-surface mb-4">Policies & Guidelines</h4>
-              <ul className="space-y-4">
-                <li className="flex gap-3">
-                  <span className="material-symbols-outlined text-primary text-[20px]">info</span>
-                  <div>
-                    <p className="font-label-md">Meal Allowance Cap</p>
-                    <p className="text-body-sm text-on-surface-variant">Daily limit increased to $65.00 effective Oct 1st.</p>
-                  </div>
-                </li>
-                <li className="flex gap-3">
-                  <span className="material-symbols-outlined text-primary text-[20px]">verified</span>
-                  <div>
-                    <p className="font-label-md">Receipt Quality</p>
-                    <p className="text-body-sm text-on-surface-variant">Ensure all digital scans show date and total clearly.</p>
-                  </div>
-                </li>
-              </ul>
-            </CardContent>
-          </Card>
         </div>
       </div>
     </div>
