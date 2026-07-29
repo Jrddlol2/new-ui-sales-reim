@@ -6,17 +6,46 @@ import { useAppContext } from '../../components/AppContext';
 import { EmptyState } from '../../components/shared/states';
 import { formatDateShort, formatFullDateTime } from '../../lib/date';
 
-const getIconForSubject = (subject: string) => {
+type NotificationCategory = 'rejected' | 'returned' | 'approved' | 'payments' | 'meetings' | 'advances' | 'liquidations' | 'other';
+
+/** Single source of truth for subject -> category, shared by the icon
+ *  lookup and the filter chips below so they never disagree on what a
+ *  message "is". Order matters: a subject can match several keywords
+ *  (e.g. "Cash Advance Released" has both "release" and "advance"). */
+const classifySubject = (subject: string): NotificationCategory => {
   const s = subject.toLowerCase();
-  if (s.includes('reject')) return { icon: 'cancel', color: 'text-red-600', bg: 'bg-red-100' };
-  if (s.includes('return') || s.includes('revis')) return { icon: 'edit', color: 'text-yellow-600', bg: 'bg-yellow-100' };
-  if (s.includes('approv')) return { icon: 'check_circle', color: 'text-green-600', bg: 'bg-green-100' };
-  if (s.includes('release') || s.includes('claim') || s.includes('payment') || s.includes('disburs')) return { icon: 'payments', color: 'text-teal-600', bg: 'bg-teal-100' };
-  if (s.includes('meeting') || s.includes('review')) return { icon: 'event', color: 'text-blue-600', bg: 'bg-blue-100' };
-  if (s.includes('advance')) return { icon: 'work', color: 'text-indigo-600', bg: 'bg-indigo-100' };
-  if (s.includes('liquidat')) return { icon: 'receipt_long', color: 'text-purple-600', bg: 'bg-purple-100' };
-  return { icon: 'notifications', color: 'text-slate-600', bg: 'bg-slate-100' };
+  if (s.includes('reject')) return 'rejected';
+  if (s.includes('return') || s.includes('revis')) return 'returned';
+  if (s.includes('approv')) return 'approved';
+  if (s.includes('release') || s.includes('claim') || s.includes('payment') || s.includes('disburs')) return 'payments';
+  if (s.includes('meeting') || s.includes('review')) return 'meetings';
+  if (s.includes('advance')) return 'advances';
+  if (s.includes('liquidat')) return 'liquidations';
+  return 'other';
 };
+
+const CATEGORY_ICON: Record<NotificationCategory, { icon: string; color: string; bg: string }> = {
+  rejected: { icon: 'cancel', color: 'text-red-600', bg: 'bg-red-100' },
+  returned: { icon: 'edit', color: 'text-yellow-600', bg: 'bg-yellow-100' },
+  approved: { icon: 'check_circle', color: 'text-green-600', bg: 'bg-green-100' },
+  payments: { icon: 'payments', color: 'text-teal-600', bg: 'bg-teal-100' },
+  meetings: { icon: 'event', color: 'text-blue-600', bg: 'bg-blue-100' },
+  advances: { icon: 'work', color: 'text-indigo-600', bg: 'bg-indigo-100' },
+  liquidations: { icon: 'receipt_long', color: 'text-purple-600', bg: 'bg-purple-100' },
+  other: { icon: 'notifications', color: 'text-slate-600', bg: 'bg-slate-100' },
+};
+
+const getIconForSubject = (subject: string) => CATEGORY_ICON[classifySubject(subject)];
+
+const FILTERS: { id: string; label: string; match: (m: { subject: string; read: boolean }) => boolean }[] = [
+  { id: 'all', label: 'All', match: () => true },
+  { id: 'unread', label: 'Unread', match: m => !m.read },
+  { id: 'approvals', label: 'Approvals', match: m => classifySubject(m.subject) === 'approved' },
+  { id: 'payments', label: 'Payments & Releases', match: m => classifySubject(m.subject) === 'payments' },
+  { id: 'meetings', label: 'Meetings', match: m => classifySubject(m.subject) === 'meetings' },
+  { id: 'advances', label: 'Cash Advances', match: m => classifySubject(m.subject) === 'advances' },
+  { id: 'rejections', label: 'Rejections', match: m => classifySubject(m.subject) === 'rejected' },
+];
 
 /** Real system emails already come from the server as SharePoint-style
  *  formatted plain text (headers, greeting, footer all baked into `body` —
@@ -25,6 +54,7 @@ export function Notifications() {
   const { emails, currentUser, markEmailsRead } = useAppContext();
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [searchQuery, setSearchQuery] = useState('');
+  const [activeFilter, setActiveFilter] = useState('all');
 
   const myMessages = useMemo(() => {
     return emails
@@ -32,11 +62,19 @@ export function Notifications() {
       .sort((a, b) => new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime());
   }, [emails, currentUser.id]);
 
+  const filterCounts = useMemo(() => {
+    const counts: Record<string, number> = {};
+    FILTERS.forEach(f => { counts[f.id] = myMessages.filter(f.match).length; });
+    return counts;
+  }, [myMessages]);
+
   const filteredMessages = useMemo(() => {
+    const filter = FILTERS.find(f => f.id === activeFilter) || FILTERS[0];
+    const byCategory = myMessages.filter(filter.match);
     const q = searchQuery.toLowerCase();
-    if (!q) return myMessages;
-    return myMessages.filter(m => m.subject.toLowerCase().includes(q) || m.body.toLowerCase().includes(q));
-  }, [myMessages, searchQuery]);
+    if (!q) return byCategory;
+    return byCategory.filter(m => m.subject.toLowerCase().includes(q) || m.body.toLowerCase().includes(q));
+  }, [myMessages, searchQuery, activeFilter]);
 
   const selectedMessage = useMemo(() => {
     return myMessages.find(m => m.id === selectedId) || filteredMessages[0] || null;
@@ -85,6 +123,21 @@ export function Notifications() {
                   onChange={(e) => setSearchQuery(e.target.value)}
                   className="pl-9"
                 />
+              </div>
+              <div className="flex flex-wrap gap-1.5">
+                {FILTERS.map(f => (
+                  <button
+                    key={f.id}
+                    onClick={() => setActiveFilter(f.id)}
+                    className={`px-2.5 py-1 rounded-full text-[11px] font-medium transition-colors whitespace-nowrap ${
+                      activeFilter === f.id
+                        ? 'bg-primary text-white'
+                        : 'bg-surface-container-high text-on-surface-variant hover:bg-outline-variant'
+                    }`}
+                  >
+                    {f.label}{filterCounts[f.id] > 0 ? ` (${filterCounts[f.id]})` : ''}
+                  </button>
+                ))}
               </div>
               <div className="flex justify-between items-center px-1">
                 <span className="text-label-sm text-outline font-medium uppercase tracking-wider">Inbox</span>
