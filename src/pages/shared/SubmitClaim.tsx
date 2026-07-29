@@ -26,7 +26,9 @@ export function SubmitClaim() {
   const typeFromQuery = TYPE_PARAM_MAP[searchParams.get('type') ?? ''];
 
   const [claimType, setClaimType] = useState<'Reimbursement' | 'Cash Advance' | 'Liquidation'>(typeFromQuery ?? 'Reimbursement');
-  const [step, setStep] = useState(typeFromQuery ? 1 : 0); // Step 0 is Type Selection
+  // Step 0 is Type Selection. A Reimbursement now opens on the Minutes of
+  // Meeting step (2) rather than Details & Items (1) — see stepFlow below.
+  const [step, setStep] = useState(typeFromQuery ? (typeFromQuery === 'Reimbursement' ? 2 : 1) : 0);
   const [loading, setLoading] = useState(false);
   const momFileInputRef = useRef<HTMLInputElement>(null);
 
@@ -52,17 +54,22 @@ export function SubmitClaim() {
   const [meetingDate, setMeetingDate] = useState('');
   const [meetingTime, setMeetingTime] = useState('');
 
+  // Declared in the order a Reimbursement actually visits them (MOM before
+  // Details & Items) — the stepper dots and the "Step X of Y" label below
+  // both read off this array's order, not the numeric `num`.
   const steps = [
-    { num: 1, title: 'Details & Items' },
     { num: 2, title: 'Minutes of Meeting' },
+    { num: 1, title: 'Details & Items' },
     { num: 3, title: 'Schedule Review' },
     { num: 4, title: 'Review & Submit' }
   ];
 
   // A Cash Advance is just an amount + purpose, and a Liquidation has no MOM
   // or review-meeting concept of its own — both skip straight from Details to
-  // Review & Submit. Only a Reimbursement walks all four steps.
-  const stepFlow = claimType === 'Reimbursement' ? [1, 2, 3, 4] : [1, 4];
+  // Review & Submit. A Reimbursement captures the Minutes of Meeting first,
+  // then the expense details/items, so the approver's context (who, why) is
+  // already on record before line items are entered.
+  const stepFlow = claimType === 'Reimbursement' ? [2, 1, 3, 4] : [1, 4];
   const flowPosition = stepFlow.indexOf(step);
 
   const handleNext = () => {
@@ -264,7 +271,7 @@ export function SubmitClaim() {
       <div className="max-w-[800px] mx-auto py-12 px-6">
         <h2 className="font-headline-lg mb-6">What would you like to submit?</h2>
         <div className="grid grid-cols-1 sm:grid-cols-3 gap-6">
-          <Card className="hover:border-primary cursor-pointer transition-colors" onClick={() => { setClaimType('Reimbursement'); setStep(1); }}>
+          <Card className="hover:border-primary cursor-pointer transition-colors" onClick={() => { setClaimType('Reimbursement'); setStep(2); }}>
             <CardContent className="p-6 text-center">
               <span className="material-symbols-outlined text-[48px] text-primary mb-4">receipt_long</span>
               <h3 className="font-headline-sm">Reimbursement</h3>
@@ -301,7 +308,7 @@ export function SubmitClaim() {
         <div className="flex justify-between items-end mb-8">
           <div>
             <h2 className="font-headline-lg text-on-surface">Submit {claimType}</h2>
-            <p className="font-body-base text-on-surface-variant">Step {flowPosition + 1} of {stepFlow.length}: {steps[step - 1].title}</p>
+            <p className="font-body-base text-on-surface-variant">Step {flowPosition + 1} of {stepFlow.length}: {steps.find(s => s.num === step)?.title}</p>
           </div>
           <div className="text-right hidden sm:block">
             <span className="font-label-sm text-primary uppercase">Draft mode</span>

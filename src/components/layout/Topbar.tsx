@@ -10,7 +10,7 @@ interface TopbarProps {
 }
 
 export function Topbar({ onMenuClick, isCollapsed = false }: TopbarProps) {
-  const { users, currentUser, setCurrentUser, emails, markEmailsRead } = useAppContext();
+  const { currentUser, emails, markEmailsRead } = useAppContext();
   const [showNotifications, setShowNotifications] = useState(false);
   const dropdownRef = useRef<HTMLDivElement>(null);
   const navigate = useNavigate();
@@ -56,35 +56,16 @@ export function Topbar({ onMenuClick, isCollapsed = false }: TopbarProps) {
       </div>
       
       <div className="flex items-center gap-6 ml-4">
-        {/* Prototype Role Switcher — dev-only. PRODUCTION-PASS P0 #2: this is
-            a one-click privilege escalation and must never ship to a real
-            build; the Login screen (App.tsx) is what a built app uses instead. */}
-        {import.meta.env.DEV && (
-          <div className="hidden sm:flex items-center gap-2">
-            <select
-              className="text-xs bg-surface-container border border-outline-variant rounded p-1 font-mono-data focus:ring-2 focus:ring-primary outline-none text-on-surface"
-              value={currentUser.id}
-              onChange={(e) => {
-                const u = users.find(user => user.id === e.target.value);
-                if (u) setCurrentUser(u);
-              }}
-            >
-              {users.map(u => (
-                <option key={u.id} value={u.id}>{u.role} ({u.name.split(' ')[0]})</option>
-              ))}
-            </select>
-          </div>
-        )}
-        {!import.meta.env.DEV && (
-          <button
-            aria-label="Sign out"
-            title={`Signed in as ${currentUser.name}`}
-            className="hidden sm:flex items-center gap-1.5 text-xs text-on-surface-variant hover:text-primary transition-colors"
-            onClick={() => { logout(); window.location.reload(); }}
-          >
-            <span className="material-symbols-outlined text-[18px]">logout</span> Sign out
-          </button>
-        )}
+        {/* Sign out — the account-picker Login screen is the only way back
+            in, in every build. See App.tsx. */}
+        <button
+          aria-label="Sign out"
+          title={`Signed in as ${currentUser.name}`}
+          className="hidden sm:flex items-center gap-1.5 text-xs text-on-surface-variant hover:text-primary transition-colors"
+          onClick={() => { logout(); window.location.reload(); }}
+        >
+          <span className="material-symbols-outlined text-[18px]">logout</span> Sign out
+        </button>
 
         <div className="flex items-center gap-2">
           <div className="relative" ref={dropdownRef}>

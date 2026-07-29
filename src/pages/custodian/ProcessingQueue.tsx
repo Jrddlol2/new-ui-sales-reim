@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Card, CardHeader } from '../../components/ui/Card';
 import { StatusBadge } from '../../components/ui/StatusBadge';
@@ -6,12 +6,16 @@ import { ClaimStatus } from '../../types';
 import { formatMoney } from '../../lib/money';
 import { CustodianActionButtons } from '../../components/shared/CustodianActionButtons';
 import { useAppContext } from '../../components/AppContext';
+import { Pagination } from '../../components/ui/Pagination';
+
+const ITEMS_PER_PAGE = 15;
 
 export function ProcessingQueue() {
   const navigate = useNavigate();
   const { claims, users } = useAppContext();
 
   const [filter, setFilter] = useState('All');
+  const [currentPage, setCurrentPage] = useState(1);
 
   const processingClaims = claims.filter(c =>
     (c.status === ClaimStatus.APPROVED) ||
@@ -26,6 +30,13 @@ export function ProcessingQueue() {
   if (filter === 'Audit') displayedClaims = processingClaims.filter(c => c.status === ClaimStatus.PROCESSING);
   if (filter === 'Advances') displayedClaims = processingClaims.filter(c => c.type === 'Cash Advance');
   if (filter === 'Liquidations') displayedClaims = processingClaims.filter(c => c.type === 'Liquidation');
+
+  const totalPages = Math.ceil(displayedClaims.length / ITEMS_PER_PAGE);
+  const paginatedClaims = displayedClaims.slice((currentPage - 1) * ITEMS_PER_PAGE, currentPage * ITEMS_PER_PAGE);
+
+  useEffect(() => {
+    setCurrentPage(1);
+  }, [filter]);
 
   return (
     <div className="space-y-6 animate-in fade-in duration-500">
@@ -66,7 +77,7 @@ export function ProcessingQueue() {
                     <p className="font-label-md">Queue is empty!</p>
                   </td>
                 </tr>
-              ) : displayedClaims.map(claim => {
+              ) : paginatedClaims.map(claim => {
                 const req = users.find(u => u.id === claim.requestorId) || users[0];
                 return (
                   <tr key={claim.id} className="hover:bg-primary-fixed/20 transition-colors group cursor-pointer" onClick={(e) => {
@@ -115,6 +126,7 @@ export function ProcessingQueue() {
             </tbody>
           </table>
         </div>
+        <Pagination currentPage={currentPage} totalPages={totalPages} onPageChange={setCurrentPage} />
       </Card>
     </div>
   );

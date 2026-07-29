@@ -58,8 +58,8 @@ export function AdminDashboard() {
 
   useEffect(() => {
     let alive = true;
-    fetchAuditHistory()
-      .then((data: AuditEntry[]) => { if (alive) setRecentAudit((data || []).slice(0, 5)); })
+    fetchAuditHistory({ limit: 5 })
+      .then((data: AuditEntry[]) => { if (alive) setRecentAudit(data || []); })
       .catch((e: any) => { if (alive) setAuditError(e?.message || 'Could not load recent activity.'); });
     return () => { alive = false; };
   }, []);

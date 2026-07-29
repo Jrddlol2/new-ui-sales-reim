@@ -3,7 +3,7 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-import { useState, type ReactNode } from 'react';
+import { useState, lazy, Suspense, type ReactNode } from 'react';
 import { BrowserRouter, Routes, Route, Navigate, useLocation } from 'react-router-dom';
 import { AppProvider, useAppContext } from './components/AppContext';
 import { ToastProvider } from './components/shared/ToastContext';
@@ -11,33 +11,49 @@ import { ErrorBoundary } from './components/shared/ErrorBoundary';
 import { Layout } from './components/layout/Layout';
 import { Login } from './pages/Login';
 import { isLoggedIn } from './lib/api';
-import { Dashboard } from './pages/Dashboard';
-import { ClaimsList } from './pages/shared/ClaimsList';
-import { Payouts } from './pages/shared/Payouts';
-import { SubmitClaim } from './pages/shared/SubmitClaim';
-import { ClaimDetail } from './pages/shared/ClaimDetail';
-import { ApprovalQueue } from './pages/approver/ApprovalQueue';
-import { ProcessingQueue } from './pages/custodian/ProcessingQueue';
-import { ReadyToClaimQueue } from './pages/custodian/ReadyToClaimQueue';
-import { AdminDashboard } from './pages/admin/AdminDashboard';
 import { UserRole } from './types';
-import { TransactionHistory } from './pages/custodian/TransactionHistory';
-import { CustodianAnalytics } from './pages/custodian/CustodianAnalytics';
-import { AuditLog } from './pages/admin/AuditLog';
-import { UserAccounts } from './pages/admin/UserAccounts';
-import { MOMs } from './pages/shared/MOMs';
-import { MomDetail } from './pages/shared/MomDetail';
-import { Calendar } from './pages/shared/Calendar';
-import { Settings } from './pages/shared/Settings';
-import { Support } from './pages/shared/Support';
-import { Notifications } from './pages/shared/Notifications';
-import { CompanyDirectory } from './pages/admin/CompanyDirectory';
-import { Receipts } from './pages/shared/Receipts';
-import { MasterData } from './pages/admin/MasterData';
-import { FieldDefinitionsAdmin } from './pages/admin/FieldDefinitionsAdmin';
-import { AdminReporting } from './pages/admin/AdminReporting';
-import { SystemEmails } from './pages/admin/SystemEmails';
-import { HistoricalImport } from './pages/admin/HistoricalImport';
+import { CardSkeleton } from './components/shared/states/Skeleton';
+
+// Route-level code-splitting: every page below Layout is its own chunk,
+// fetched on first navigation rather than bundled into the initial load.
+// Dashboard/AdminDashboard stay out of this (they're the landing page for
+// every role, so lazy-loading them would just move the wait, not remove it).
+import { Dashboard } from './pages/Dashboard';
+import { AdminDashboard } from './pages/admin/AdminDashboard';
+
+const ClaimsList = lazy(() => import('./pages/shared/ClaimsList').then(m => ({ default: m.ClaimsList })));
+const Payouts = lazy(() => import('./pages/shared/Payouts').then(m => ({ default: m.Payouts })));
+const SubmitClaim = lazy(() => import('./pages/shared/SubmitClaim').then(m => ({ default: m.SubmitClaim })));
+const ClaimDetail = lazy(() => import('./pages/shared/ClaimDetail').then(m => ({ default: m.ClaimDetail })));
+const ApprovalQueue = lazy(() => import('./pages/approver/ApprovalQueue').then(m => ({ default: m.ApprovalQueue })));
+const ProcessingQueue = lazy(() => import('./pages/custodian/ProcessingQueue').then(m => ({ default: m.ProcessingQueue })));
+const ReadyToClaimQueue = lazy(() => import('./pages/custodian/ReadyToClaimQueue').then(m => ({ default: m.ReadyToClaimQueue })));
+const TransactionHistory = lazy(() => import('./pages/custodian/TransactionHistory').then(m => ({ default: m.TransactionHistory })));
+const CustodianAnalytics = lazy(() => import('./pages/custodian/CustodianAnalytics').then(m => ({ default: m.CustodianAnalytics })));
+const AuditLog = lazy(() => import('./pages/admin/AuditLog').then(m => ({ default: m.AuditLog })));
+const UserAccounts = lazy(() => import('./pages/admin/UserAccounts').then(m => ({ default: m.UserAccounts })));
+const MOMs = lazy(() => import('./pages/shared/MOMs').then(m => ({ default: m.MOMs })));
+const MomDetail = lazy(() => import('./pages/shared/MomDetail').then(m => ({ default: m.MomDetail })));
+const Calendar = lazy(() => import('./pages/shared/Calendar').then(m => ({ default: m.Calendar })));
+const Settings = lazy(() => import('./pages/shared/Settings').then(m => ({ default: m.Settings })));
+const Support = lazy(() => import('./pages/shared/Support').then(m => ({ default: m.Support })));
+const Notifications = lazy(() => import('./pages/shared/Notifications').then(m => ({ default: m.Notifications })));
+const CompanyDirectory = lazy(() => import('./pages/admin/CompanyDirectory').then(m => ({ default: m.CompanyDirectory })));
+const Receipts = lazy(() => import('./pages/shared/Receipts').then(m => ({ default: m.Receipts })));
+const MasterData = lazy(() => import('./pages/admin/MasterData').then(m => ({ default: m.MasterData })));
+const FieldDefinitionsAdmin = lazy(() => import('./pages/admin/FieldDefinitionsAdmin').then(m => ({ default: m.FieldDefinitionsAdmin })));
+// recharts alone is a big chunk only this page needs — the audit's own example.
+const AdminReporting = lazy(() => import('./pages/admin/AdminReporting').then(m => ({ default: m.AdminReporting })));
+const SystemEmails = lazy(() => import('./pages/admin/SystemEmails').then(m => ({ default: m.SystemEmails })));
+const HistoricalImport = lazy(() => import('./pages/admin/HistoricalImport').then(m => ({ default: m.HistoricalImport })));
+
+function RouteFallback() {
+  return (
+    <div className="p-6">
+      <CardSkeleton />
+    </div>
+  );
+}
 
 // A route that throws shouldn't white-screen the whole app, and navigating
 // away from the broken page should recover automatically — keying the
@@ -51,6 +67,7 @@ function RoleBasedRouter() {
   const { currentUser } = useAppContext();
 
   return (
+    <Suspense fallback={<RouteFallback />}>
     <Routes>
       <Route element={<Layout />}>
         {currentUser.role === UserRole.ADMIN ? (
@@ -97,16 +114,15 @@ function RoleBasedRouter() {
         <Route path="*" element={<Navigate to="/" replace />} />
       </Route>
     </Routes>
+    </Suspense>
   );
 }
 
 export default function App() {
-  // Dev mode keeps the fast Topbar role-switcher and skips this entirely —
-  // that convenience is exactly what PRODUCTION-PASS P0 #2 says must NOT
-  // ship to a real build. A production build requires picking an identity
-  // here first (see Login.tsx for what this prototype-level gate is and
-  // isn't).
-  const [loggedIn, setLoggedIn] = useState(() => import.meta.env.DEV || isLoggedIn());
+  // The account-picker Login screen is now the entry point in every build,
+  // dev included — matching the deployed instance. Sign-out (Topbar) is the
+  // only way back to it; there's no dev-only bypass or role-switcher anymore.
+  const [loggedIn, setLoggedIn] = useState(() => isLoggedIn());
 
   if (!loggedIn) {
     return <Login onLoggedIn={() => setLoggedIn(true)} />;

@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react';
 import { Card, CardHeader } from '../../components/ui/Card';
-import { fetchAuditHistory } from '../../lib/api';
+import { Pagination } from '../../components/ui/Pagination';
+import { fetchAuditHistory, PageResult } from '../../lib/api';
 import { formatDateTime } from '../../lib/date';
 
 interface AuditEntry {
@@ -15,29 +16,39 @@ interface AuditEntry {
   master_data_key?: string;
 }
 
+const PAGE_SIZE = 25;
+
 export function AuditLog() {
   const [entries, setEntries] = useState<AuditEntry[]>([]);
+  const [total, setTotal] = useState(0);
+  const [currentPage, setCurrentPage] = useState(1);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
   const [search, setSearch] = useState('');
 
+  // Reset to page 1 when the search term changes.
+  useEffect(() => {
+    setCurrentPage(1);
+  }, [search]);
+
   useEffect(() => {
     let alive = true;
-    fetchAuditHistory()
-      .then(data => { if (alive) setEntries(data || []); })
-      .catch(e => { if (alive) setError(e?.message || 'Could not load the audit history.'); })
-      .finally(() => { if (alive) setLoading(false); });
-    return () => { alive = false; };
-  }, []);
+    setLoading(true);
+    // Debounce the search so every keystroke doesn't fire a request.
+    const handle = setTimeout(() => {
+      fetchAuditHistory({ page: currentPage, pageSize: PAGE_SIZE, search })
+        .then((data: PageResult<AuditEntry>) => {
+          if (!alive) return;
+          setEntries(data.items || []);
+          setTotal(data.total || 0);
+        })
+        .catch(e => { if (alive) setError(e?.message || 'Could not load the audit history.'); })
+        .finally(() => { if (alive) setLoading(false); });
+    }, search ? 300 : 0);
+    return () => { alive = false; clearTimeout(handle); };
+  }, [currentPage, search]);
 
-  const filtered = entries.filter(e => {
-    if (!search.trim()) return true;
-    const q = search.toLowerCase();
-    return [
-      e.changedBy?.name, e.claim?.claim_number, e.new_status, e.old_status,
-      e.reason, e.targetUser?.name, e.master_data_key,
-    ].some(v => (v || '').toLowerCase().includes(q));
-  });
+  const totalPages = Math.ceil(total / PAGE_SIZE);
 
   // What the event acted on: a claim, a user, or a catalog entry.
   const subjectOf = (e: AuditEntry) =>
@@ -67,7 +78,7 @@ export function AuditLog() {
         <CardHeader className="bg-surface-container-low">
           <div className="flex justify-between items-center w-full">
             <h3 className="font-label-md uppercase tracking-wider text-on-surface">Immutable Event Feed</h3>
-            <span className="font-label-sm text-outline">{filtered.length} of {entries.length}</span>
+            <span className="font-label-sm text-outline">{total} event{total === 1 ? '' : 's'}</span>
           </div>
         </CardHeader>
         <div className="overflow-x-auto">
@@ -88,12 +99,12 @@ export function AuditLog() {
                 </td></tr>
               ) : error ? (
                 <tr><td colSpan={5} className="px-6 py-12 text-center text-error">{error}</td></tr>
-              ) : filtered.length === 0 ? (
+              ) : entries.length === 0 ? (
                 <tr><td colSpan={5} className="px-6 py-12 text-center text-outline">
                   <span className="material-symbols-outlined text-4xl mb-2 opacity-50">gavel</span>
                   <p className="font-label-md">No events match.</p>
                 </td></tr>
-              ) : filtered.slice(0, 500).map(entry => (
+              ) : entries.map(entry => (
                 <tr key={entry.id} className="hover:bg-primary-container/5 transition-colors">
                   <td className="px-6 py-5 font-mono-data text-on-surface-variant text-sm whitespace-nowrap">
                     {formatDateTime(entry.timestamp)}
@@ -127,6 +138,7 @@ export function AuditLog() {
             </tbody>
           </table>
         </div>
+        <Pagination currentPage={currentPage} totalPages={totalPages} onPageChange={setCurrentPage} />
       </Card>
     </div>
   );

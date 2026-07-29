@@ -1,34 +1,60 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { Portal } from '../../components/shared/Portal';
 import { Card, CardHeader } from '../../components/ui/Card';
 import { Input } from '../../components/ui/Input';
 import { Button } from '../../components/ui/Button';
+import { Pagination } from '../../components/ui/Pagination';
 import { useAppContext } from '../../components/AppContext';
+import { fetchOutbox, PageResult, fromServerEmail } from '../../lib/api';
 import { SystemEmail } from '../../types';
 import { formatDateTime } from '../../lib/date';
 
+const PAGE_SIZE = 25;
+
 export function SystemEmails() {
-  const { emails, markEmailsRead, users } = useAppContext();
+  const { markEmailsRead, users } = useAppContext();
   const [selected, setSelected] = useState<SystemEmail | null>(null);
   const [searchTerm, setSearchTerm] = useState('');
 
+  const [emails, setEmails] = useState<SystemEmail[]>([]);
+  const [total, setTotal] = useState(0);
+  const [unread, setUnread] = useState(0);
+  const [currentPage, setCurrentPage] = useState(1);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState('');
+
+  useEffect(() => {
+    setCurrentPage(1);
+  }, [searchTerm]);
+
+  useEffect(() => {
+    let alive = true;
+    setLoading(true);
+    const handle = setTimeout(() => {
+      fetchOutbox({ page: currentPage, pageSize: PAGE_SIZE, search: searchTerm })
+        .then((data: PageResult<any>) => {
+          if (!alive) return;
+          const items = (data.items || []).map(fromServerEmail);
+          setEmails(items);
+          setTotal(data.total || 0);
+          setUnread(data.unreadTotal ?? 0);
+        })
+        .catch(e => { if (alive) setError(e?.message || 'Could not load system emails.'); })
+        .finally(() => { if (alive) setLoading(false); });
+    }, searchTerm ? 300 : 0);
+    return () => { alive = false; clearTimeout(handle); };
+  }, [currentPage, searchTerm]);
+
   const openEmail = (email: SystemEmail) => {
-    if (!email.read) markEmailsRead([email.id]);
+    if (!email.read) {
+      markEmailsRead([email.id]);
+      setEmails(prev => prev.map(e => e.id === email.id ? { ...e, read: true } : e));
+      setUnread(u => Math.max(0, u - 1));
+    }
     setSelected({ ...email, read: true });
   };
 
-  const filtered = [...emails]
-    .sort((a, b) => new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime())
-    .filter(e => {
-      const recipient = users.find(u => u.id === e.recipientId);
-      const q = searchTerm.toLowerCase();
-      return (
-        e.subject.toLowerCase().includes(q) ||
-        e.body.toLowerCase().includes(q) ||
-        (recipient?.name || '').toLowerCase().includes(q) ||
-        (recipient?.email || e.to || '').toLowerCase().includes(q)
-      );
-    });
+  const totalPages = Math.ceil(total / PAGE_SIZE);
 
   return (
     <div className="space-y-6 animate-in fade-in duration-500">
@@ -38,8 +64,8 @@ export function SystemEmails() {
           <p className="text-body-md text-outline mt-1">Every system-generated notification and transaction email, as sent.</p>
         </div>
         <div className="flex gap-2 text-xs font-semibold">
-          <span className="bg-primary-container/20 text-primary px-3 py-1.5 rounded-full">Total: {emails.length}</span>
-          <span className="bg-amber-100 text-amber-800 px-3 py-1.5 rounded-full">Unread: {emails.filter(e => !e.read).length}</span>
+          <span className="bg-primary-container/20 text-primary px-3 py-1.5 rounded-full">Total: {total}</span>
+          <span className="bg-amber-100 text-amber-800 px-3 py-1.5 rounded-full">Unread: {unread}</span>
         </div>
       </div>
 
@@ -55,7 +81,7 @@ export function SystemEmails() {
       <Card>
         <CardHeader className="bg-surface-container-low/50 border-b border-outline-variant flex justify-between items-center">
           <h4 className="font-headline-md text-on-surface">Sent Mail Log</h4>
-          <span className="font-label-sm text-outline">{filtered.length} shown</span>
+          <span className="font-label-sm text-outline">{total} shown</span>
         </CardHeader>
         <div className="overflow-x-auto">
           <table className="w-full text-left">
@@ -69,9 +95,15 @@ export function SystemEmails() {
               </tr>
             </thead>
             <tbody className="divide-y divide-outline-variant">
-              {filtered.length === 0 ? (
+              {loading ? (
+                <tr><td colSpan={5} className="px-6 py-12 text-center text-outline">
+                  <span className="material-symbols-outlined animate-spin">sync</span>
+                </td></tr>
+              ) : error ? (
+                <tr><td colSpan={5} className="px-6 py-8 text-center text-error">{error}</td></tr>
+              ) : emails.length === 0 ? (
                 <tr><td colSpan={5} className="px-6 py-8 text-center text-outline">No matching system emails found.</td></tr>
-              ) : filtered.slice(0, 300).map(e => {
+              ) : emails.map(e => {
                 const recipient = users.find(u => u.id === e.recipientId);
                 return (
                   <tr
@@ -100,6 +132,7 @@ export function SystemEmails() {
             </tbody>
           </table>
         </div>
+        <Pagination currentPage={currentPage} totalPages={totalPages} onPageChange={setCurrentPage} />
       </Card>
 
       {selected && (

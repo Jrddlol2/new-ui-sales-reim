@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { Card } from '../../components/ui/Card';
 import { Button } from '../../components/ui/Button';
 import { Input } from '../../components/ui/Input';
@@ -6,6 +6,9 @@ import { useAppContext } from '../../components/AppContext';
 import { useToast } from '../../components/shared/ToastContext';
 import { createFieldDefinition, updateFieldDefinition } from '../../lib/api';
 import { FieldDefinition, FIELD_ENTITIES, FieldDefinitionEntity, ClaimType } from '../../types';
+import { Pagination } from '../../components/ui/Pagination';
+
+const ITEMS_PER_PAGE = 15;
 
 
 
@@ -69,8 +72,15 @@ export function FieldDefinitionsAdmin() {
   const [selectedEntity, setSelectedEntity] = useState<FieldDefinitionEntity>(FIELD_ENTITIES[0].value);
   const [keyManuallyEdited, setKeyManuallyEdited] = useState(false);
   const [saving, setSaving] = useState(false);
+  const [currentPage, setCurrentPage] = useState(1);
 
   const filteredFields = fieldDefinitions.filter(fd => fd.entity === selectedEntity);
+  const totalPages = Math.ceil(filteredFields.length / ITEMS_PER_PAGE);
+  const paginatedFields = filteredFields.slice((currentPage - 1) * ITEMS_PER_PAGE, currentPage * ITEMS_PER_PAGE);
+
+  useEffect(() => {
+    setCurrentPage(1);
+  }, [selectedEntity]);
 
   const handleSave = async () => {
     setSaving(true);
@@ -153,7 +163,7 @@ export function FieldDefinitionsAdmin() {
               </tr>
             </thead>
             <tbody className="divide-y divide-outline-variant">
-              {filteredFields.map(fd => (
+              {paginatedFields.map(fd => (
                 <tr key={fd.id} className="hover:bg-primary-fixed/5 transition-colors">
                   {editingId === fd.id ? (
                     <>
@@ -282,6 +292,7 @@ export function FieldDefinitionsAdmin() {
             </tbody>
           </table>
         </div>
+        <Pagination currentPage={currentPage} totalPages={totalPages} onPageChange={setCurrentPage} />
       </Card>
     </div>
   );

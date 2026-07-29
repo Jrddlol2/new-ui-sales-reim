@@ -216,32 +216,43 @@ let fieldDefinitions: FieldDefinition[] = buildInitialFieldDefinitions();
 // offer and segregation-of-duties can be demoed across two independent
 // chains. Shared by both /api/admin/seed and /api/admin/reset so the two
 // never drift apart.
+// Phase 3 (O365/Entra ID) prep: stamp every seed user with a fake-but-stable
+// `entra_object_id`/`user_principal_name` so getUser() and every consumer can
+// already resolve on those join keys. Real values will come from the Entra
+// JWT (`oid` claim) once sign-in is wired in — this only makes the switch a
+// data swap, not a schema change. See docs/PROTOTYPE-AUDIT.md.
+const withEntraFields = (u: User): User => ({
+  ...u,
+  entra_object_id: `fake-oid-${u.id}`,
+  user_principal_name: u.email,
+});
+
 const buildDefaultUsers = (): User[] => [
-  { id: 'u13', name: 'Mia Fernandez', email: 'mia@mgenesis.com', role: UserRole.REQUESTOR, department: 'Marketing', job_title: 'Marketing Specialist', reports_to: 'u14', avatar_url: '/avatars/f6.jpg' },
-  { id: 'u14', name: 'Noah Villanueva', email: 'noah@mgenesis.com', role: UserRole.APPROVER, department: 'Marketing', job_title: 'Marketing Director', reports_to: 'u19', avatar_url: '/avatars/m8.jpg' },
-  { id: 'u15', name: 'Olivia Cruz', email: 'olivia@mgenesis.com', role: UserRole.REQUESTOR, department: 'Engineering', job_title: 'Software Engineer', reports_to: 'u16', avatar_url: '/avatars/f7.jpg' },
-  { id: 'u16', name: 'Peter Aquino', email: 'peter@mgenesis.com', role: UserRole.APPROVER, department: 'Engineering', job_title: 'Engineering Manager', reports_to: 'u19', avatar_url: '/avatars/m9.jpg' },
-  { id: 'u17', name: 'Quinn Domingo', email: 'quinn@mgenesis.com', role: UserRole.REQUESTOR, department: 'Operations', job_title: 'Operations Coordinator', reports_to: 'u18', avatar_url: '/avatars/f8.jpg' },
-  { id: 'u18', name: 'Ryan Torres', email: 'ryan@mgenesis.com', role: UserRole.APPROVER, department: 'Operations', job_title: 'Operations Manager', reports_to: 'u19', avatar_url: '/avatars/m10.jpg' },
-  { id: 'u19', name: 'Sarah Bautista', email: 'sarah@mgenesis.com', role: UserRole.APPROVER, department: 'Executive', job_title: 'VP of Operations', reports_to: null, avatar_url: '/avatars/f9.jpg' },
-  { id: 'u1', name: 'Alice Reyes', email: 'alice@mgenesis.com', role: UserRole.REQUESTOR, department: 'Sales', job_title: 'Sales Executive', reports_to: 'u2', avatar_url: '/avatars/f1.jpg' },
-  { id: 'u2', name: 'Bob Santos', email: 'bob@mgenesis.com', role: UserRole.APPROVER, department: 'Sales', job_title: 'Sales Director', reports_to: 'u9', avatar_url: '/avatars/m1.jpg' },
-  { id: 'u3', name: 'Carol Ramos', email: 'carol@mgenesis.com', role: UserRole.CUSTODIAN, department: 'Finance', job_title: 'Reimbursement Processor', reports_to: null, avatar_url: '/avatars/f2.jpg' },
-  { id: 'u4', name: 'Dave Lopez', email: 'dave@mgenesis.com', role: UserRole.ADMIN, department: 'IT', job_title: 'System Admin', reports_to: null, avatar_url: '/avatars/m2.jpg' },
-  { id: 'u5', name: 'Eve Garcia', email: 'eve@mgenesis.com', role: UserRole.REQUESTOR, department: 'Sales', job_title: 'Sales Executive', reports_to: 'u2', avatar_url: '/avatars/f3.jpg' },
-  { id: 'u6', name: 'Frank Mendoza', email: 'frank@mgenesis.com', role: UserRole.REQUESTOR, department: 'Sales', job_title: 'Sales Executive', reports_to: 'u2', avatar_url: '/avatars/m3.jpg' },
-  { id: 'u7', name: 'Grace Navarro', email: 'grace@mgenesis.com', role: UserRole.APPROVER, department: 'Sales', job_title: 'Sales Director', reports_to: 'u9', avatar_url: '/avatars/f4.jpg' },
-  { id: 'u8', name: 'Henry Castillo', email: 'henry@mgenesis.com', role: UserRole.APPROVER, department: 'Sales', job_title: 'Sales Director', reports_to: 'u9', avatar_url: '/avatars/m4.jpg' },
-  { id: 'u9', name: 'Ivy Salazar', email: 'ivy@mgenesis.com', role: UserRole.APPROVER, department: 'Sales', job_title: 'VP of Sales', reports_to: null, avatar_url: '/avatars/f5.jpg' },
-  { id: 'u10', name: 'Jack Herrera', email: 'jack@mgenesis.com', role: UserRole.APPROVER, department: 'Sales', job_title: 'Regional Sales Manager', reports_to: 'u9', avatar_url: '/avatars/m5.jpg' },
-  { id: 'u11', name: 'Kyle Ocampo', email: 'kyle@mgenesis.com', role: UserRole.REQUESTOR, department: 'Sales', job_title: 'Sales Executive', reports_to: 'u10', avatar_url: '/avatars/m6.jpg' },
-  { id: 'u12', name: 'Liam Villareal', email: 'liam@mgenesis.com', role: UserRole.REQUESTOR, department: 'Sales', job_title: 'Sales Executive', reports_to: 'u10', avatar_url: '/avatars/m7.jpg' },
+  { id: 'u13', name: 'Mia Fernandez', email: 'mia@mgenesis.com', role: UserRole.REQUESTOR, department: 'Marketing', job_title: 'Marketing Specialist', reports_to: 'u14', avatar_url: '/avatars/corp_female_1.jpg' },
+  { id: 'u14', name: 'Noah Villanueva', email: 'noah@mgenesis.com', role: UserRole.APPROVER, department: 'Marketing', job_title: 'Marketing Director', reports_to: 'u19', avatar_url: '/avatars/corp_male_1.jpg' },
+  { id: 'u15', name: 'Olivia Cruz', email: 'olivia@mgenesis.com', role: UserRole.REQUESTOR, department: 'Engineering', job_title: 'Software Engineer', reports_to: 'u16', avatar_url: '/avatars/corp_female_2.jpg' },
+  { id: 'u16', name: 'Peter Aquino', email: 'peter@mgenesis.com', role: UserRole.APPROVER, department: 'Engineering', job_title: 'Engineering Manager', reports_to: 'u19', avatar_url: '/avatars/corp_male_2.jpg' },
+  { id: 'u17', name: 'Quinn Domingo', email: 'quinn@mgenesis.com', role: UserRole.REQUESTOR, department: 'Operations', job_title: 'Operations Coordinator', reports_to: 'u18', avatar_url: '/avatars/corp_female_3.jpg' },
+  { id: 'u18', name: 'Ryan Torres', email: 'ryan@mgenesis.com', role: UserRole.APPROVER, department: 'Operations', job_title: 'Operations Manager', reports_to: 'u19', avatar_url: '/avatars/corp_male_3.jpg' },
+  { id: 'u19', name: 'Sarah Bautista', email: 'sarah@mgenesis.com', role: UserRole.APPROVER, department: 'Executive', job_title: 'VP of Operations', reports_to: null, avatar_url: '/avatars/corp_female_4.jpg' },
+  { id: 'u1', name: 'Alice Reyes', email: 'alice@mgenesis.com', role: UserRole.REQUESTOR, department: 'Sales', job_title: 'Sales Executive', reports_to: 'u2', avatar_url: '/avatars/corp_female_1.jpg' },
+  { id: 'u2', name: 'Bob Santos', email: 'bob@mgenesis.com', role: UserRole.APPROVER, department: 'Sales', job_title: 'Sales Director', reports_to: 'u9', avatar_url: '/avatars/corp_male_4.jpg' },
+  { id: 'u3', name: 'Carol Ramos', email: 'carol@mgenesis.com', role: UserRole.CUSTODIAN, department: 'Finance', job_title: 'Reimbursement Processor', reports_to: null, avatar_url: '/avatars/corp_female_2.jpg' },
+  { id: 'u4', name: 'Dave Lopez', email: 'dave@mgenesis.com', role: UserRole.ADMIN, department: 'IT', job_title: 'System Admin', reports_to: null, avatar_url: '/avatars/corp_male_1.jpg' },
+  { id: 'u5', name: 'Eve Garcia', email: 'eve@mgenesis.com', role: UserRole.REQUESTOR, department: 'Sales', job_title: 'Sales Executive', reports_to: 'u2', avatar_url: '/avatars/corp_female_3.jpg' },
+  { id: 'u6', name: 'Frank Mendoza', email: 'frank@mgenesis.com', role: UserRole.REQUESTOR, department: 'Sales', job_title: 'Sales Executive', reports_to: 'u2', avatar_url: '/avatars/corp_male_2.jpg' },
+  { id: 'u7', name: 'Grace Navarro', email: 'grace@mgenesis.com', role: UserRole.APPROVER, department: 'Sales', job_title: 'Sales Director', reports_to: 'u9', avatar_url: '/avatars/corp_female_4.jpg' },
+  { id: 'u8', name: 'Henry Castillo', email: 'henry@mgenesis.com', role: UserRole.APPROVER, department: 'Sales', job_title: 'Sales Director', reports_to: 'u9', avatar_url: '/avatars/corp_male_3.jpg' },
+  { id: 'u9', name: 'Ivy Salazar', email: 'ivy@mgenesis.com', role: UserRole.APPROVER, department: 'Sales', job_title: 'VP of Sales', reports_to: null, avatar_url: '/avatars/corp_female_1.jpg' },
+  { id: 'u10', name: 'Jack Herrera', email: 'jack@mgenesis.com', role: UserRole.APPROVER, department: 'Sales', job_title: 'Regional Sales Manager', reports_to: 'u9', avatar_url: '/avatars/corp_male_4.jpg' },
+  { id: 'u11', name: 'Kyle Ocampo', email: 'kyle@mgenesis.com', role: UserRole.REQUESTOR, department: 'Sales', job_title: 'Sales Executive', reports_to: 'u10', avatar_url: '/avatars/corp_male_1.jpg' },
+  { id: 'u12', name: 'Liam Villareal', email: 'liam@mgenesis.com', role: UserRole.REQUESTOR, department: 'Sales', job_title: 'Sales Executive', reports_to: 'u10', avatar_url: '/avatars/corp_male_2.jpg' },
   // Marketing had only one requestor (Mia) under Noah, making any
   // per-requestor comparison chart on his dashboard a single bar. These two
   // give Marketing the same "one approver, multiple reports" shape Sales has.
-  { id: 'u20', name: 'Ella Flores', email: 'ella@mgenesis.com', role: UserRole.REQUESTOR, department: 'Marketing', job_title: 'Marketing Coordinator', reports_to: 'u14', avatar_url: '/avatars/f10.jpg' },
-  { id: 'u21', name: 'Marco Bernardo', email: 'marco@mgenesis.com', role: UserRole.REQUESTOR, department: 'Marketing', job_title: 'Content Strategist', reports_to: 'u14', avatar_url: '/avatars/m11.jpg' }
-];
+  { id: 'u20', name: 'Ella Flores', email: 'ella@mgenesis.com', role: UserRole.REQUESTOR, department: 'Marketing', job_title: 'Marketing Coordinator', reports_to: 'u14', avatar_url: '/avatars/corp_female_2.jpg' },
+  { id: 'u21', name: 'Marco Bernardo', email: 'marco@mgenesis.com', role: UserRole.REQUESTOR, department: 'Marketing', job_title: 'Content Strategist', reports_to: 'u14', avatar_url: '/avatars/corp_male_3.jpg' }
+].map(withEntraFields);
 
 // Email Transport Mock
 // opts.plain sends an unstyled personal-message email (no SharePoint header/footer) -
@@ -471,10 +482,19 @@ export async function createApp() {
     });
   });
 
-  // Helper to get current user from header (mock auth)
+  // Helper to get current user from header (mock auth). This is the ONE seam
+  // identity is derived through — every route below calls this, never the
+  // header directly (the /uploads/:filename gate is the one documented
+  // exception, since browsers don't attach custom headers to <img> loads).
+  // Phase 3: swapping "read X-User-Id" for "validate the Entra JWT and read
+  // its `oid` claim" is a one-function change specifically because of that,
+  // and because the lookup already resolves on entra_object_id /
+  // user_principal_name — not just the internal id — so a real token's join
+  // key already exists on the seed today.
   const getUser = (req: express.Request) => {
     const userId = req.header('X-User-Id');
-    return users.find(u => u.id === userId);
+    if (!userId) return undefined;
+    return users.find(u => u.id === userId || u.entra_object_id === userId || u.user_principal_name === userId);
   };
 
   // An Active ApproverDelegation stands in for the delegating approver on
@@ -1416,6 +1436,33 @@ ${user.name}`;
       return { ...c, mom, requestor: reqUser, expenses: claimExpenses, approvals: claimApprovals, history: claimHistory, reviewMeeting };
     });
 
+    const { page, pageSize, search, status } = req.query;
+
+    let scoped = enriched;
+    if (typeof status === 'string' && status.trim()) {
+      scoped = scoped.filter(c => c.status === status);
+    }
+    if (typeof search === 'string' && search.trim()) {
+      const q = search.trim().toLowerCase();
+      scoped = scoped.filter((c: any) =>
+        [c.claim_number, c.mom?.purpose].some(v => (v || '').toString().toLowerCase().includes(q))
+      );
+    }
+
+    // loadWorkspace (dashboards, KPIs, the claims-into-context merge) needs the
+    // full list and never sends page/pageSize — this stays exactly as before
+    // for that caller. Only a caller that opts in gets the paginated shape.
+    if (page && pageSize) {
+      const p = Math.max(1, parseInt(page as string, 10) || 1);
+      const ps = Math.max(1, parseInt(pageSize as string, 10) || 25);
+      const total = scoped.length;
+      const items = scoped
+        .slice()
+        .sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime())
+        .slice((p - 1) * ps, p * ps);
+      return res.json({ items, total, page: p, pageSize: ps });
+    }
+
     res.json(enriched);
   });
 
@@ -2270,12 +2317,38 @@ BSM Assistant | BSD - IT Security Business`;
   app.get('/api/outbox', (req, res) => {
     const user = getUser(req);
     if (!user) return res.status(401).json({ error: 'Unauthorized' });
-    
-    if (user.role === UserRole.ADMIN) {
-      res.json(emails.sort((a,b) => new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime()));
-    } else {
-      res.json(emails.filter(e => e.recipient_id === user.id).sort((a,b) => new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime()));
+
+    const base = user.role === UserRole.ADMIN ? emails : emails.filter(e => e.recipient_id === user.id);
+    const sorted = [...base].sort((a,b) => new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime());
+
+    const { page, pageSize, search } = req.query;
+
+    let filtered = sorted;
+    if (typeof search === 'string' && search.trim()) {
+      const q = search.trim().toLowerCase();
+      filtered = filtered.filter(e => {
+        const recipient = users.find(u => u.id === e.recipient_id);
+        return (
+          e.subject.toLowerCase().includes(q) ||
+          e.body.toLowerCase().includes(q) ||
+          (recipient?.name || '').toLowerCase().includes(q) ||
+          (recipient?.email || e.to || '').toLowerCase().includes(q)
+        );
+      });
     }
+
+    // Same opt-in shape as /api/history: no page/pageSize means the plain
+    // sorted array, exactly as loadWorkspace has always consumed it.
+    if (page && pageSize) {
+      const p = Math.max(1, parseInt(page as string, 10) || 1);
+      const ps = Math.max(1, parseInt(pageSize as string, 10) || 25);
+      const total = filtered.length;
+      const items = filtered.slice((p - 1) * ps, p * ps);
+      const unreadTotal = base.filter(e => !e.read).length;
+      return res.json({ items, total, page: p, pageSize: ps, unreadTotal });
+    }
+
+    res.json(filtered);
   });
 
   app.put('/api/outbox/read', (req, res) => {
@@ -2368,15 +2441,42 @@ BSM Assistant | BSD - IT Security Business`;
   app.get('/api/history', (req, res) => {
     const user = getUser(req);
     if (!user || user.role !== UserRole.ADMIN) return res.status(403).json({ error: 'Forbidden' });
-    
+
     const enriched = statusHistories.map(h => {
       const claim = claims.find(c => c.id === h.claim_id);
       const changedBy = users.find(u => u.id === h.changed_by);
       const targetUser = h.user_id ? users.find(u => u.id === h.user_id) : undefined;
       return { ...h, claim, changedBy, targetUser };
     }).sort((a,b) => new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime());
-    
-    res.json(enriched);
+
+    const { page, pageSize, search, limit } = req.query;
+
+    let filtered = enriched;
+    if (typeof search === 'string' && search.trim()) {
+      const q = search.trim().toLowerCase();
+      filtered = filtered.filter(e =>
+        [e.changedBy?.name, e.claim?.claim_number, e.new_status, e.old_status, e.reason, e.targetUser?.name, (e as any).master_data_key]
+          .some(v => (v || '').toString().toLowerCase().includes(q))
+      );
+    }
+
+    // Paginated shape only kicks in when the caller opts in — everything else
+    // (AdminDashboard's "recent activity" call) keeps getting the plain array
+    // it always has, so this stays backward compatible.
+    if (page && pageSize) {
+      const p = Math.max(1, parseInt(page as string, 10) || 1);
+      const ps = Math.max(1, parseInt(pageSize as string, 10) || 25);
+      const total = filtered.length;
+      const items = filtered.slice((p - 1) * ps, p * ps);
+      return res.json({ items, total, page: p, pageSize: ps });
+    }
+
+    if (limit) {
+      const n = Math.max(1, parseInt(limit as string, 10) || 5);
+      return res.json(filtered.slice(0, n));
+    }
+
+    res.json(filtered);
   });
 
   // --- CASH ADVANCE & LIQUIDATION ENDPOINTS ---

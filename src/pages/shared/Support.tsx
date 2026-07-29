@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { Portal } from '../../components/shared/Portal';
 import { Card, CardHeader, CardContent } from '../../components/ui/Card';
 import { Button } from '../../components/ui/Button';
@@ -12,6 +12,9 @@ import { fromServerSupport } from '../../lib/api';
 import { SupportRequest, SupportRequestStatus, UserRole } from '../../types';
 import { formatMoney } from '../../lib/money';
 import { formatDate, formatDateTime } from '../../lib/date';
+import { Pagination } from '../../components/ui/Pagination';
+
+const ITEMS_PER_PAGE = 10;
 
 export function Support() {
   const { currentUser, supportRequests, refresh, claims } = useAppContext();
@@ -20,6 +23,7 @@ export function Support() {
   const [activeTicket, setActiveTicket] = useState<SupportRequest | null>(null);
   const [showNewTicketModal, setShowNewTicketModal] = useState(false);
   const [busy, setBusy] = useState(false);
+  const [currentPage, setCurrentPage] = useState(1);
 
   // The list omits messages; load the full thread when a ticket is opened.
   const openTicket = async (ticket: SupportRequest) => {
@@ -44,9 +48,16 @@ export function Support() {
   const isAdmin = currentUser.role === UserRole.ADMIN;
   
   // Filter user tickets or show all if admin
-  const userTickets = isAdmin 
-    ? supportRequests 
+  const userTickets = isAdmin
+    ? supportRequests
     : supportRequests.filter(req => req.requestorId === currentUser.id);
+
+  const totalPages = Math.ceil(userTickets.length / ITEMS_PER_PAGE);
+  const paginatedTickets = userTickets.slice((currentPage - 1) * ITEMS_PER_PAGE, currentPage * ITEMS_PER_PAGE);
+
+  useEffect(() => {
+    if (currentPage > totalPages) setCurrentPage(Math.max(1, totalPages));
+  }, [totalPages, currentPage]);
 
   const handleCreateTicket = async () => {
     if (!subject.trim() || !description.trim()) {
@@ -135,7 +146,7 @@ export function Support() {
                   <p className="text-xs mt-1">Create a ticket if you need assistance.</p>
                 </div>
               ) : (
-                userTickets.map(ticket => {
+                paginatedTickets.map(ticket => {
                   const isSelected = activeTicket?.id === ticket.id;
                   const statusColors = 
                     ticket.status === SupportRequestStatus.RESOLVED ? 'bg-green-100 text-green-800' :
@@ -167,6 +178,7 @@ export function Support() {
                 })
               )}
             </CardContent>
+            <Pagination currentPage={currentPage} totalPages={totalPages} onPageChange={setCurrentPage} />
           </Card>
         </div>
 

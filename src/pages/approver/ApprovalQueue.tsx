@@ -1,4 +1,4 @@
-import { useState, useMemo, MouseEvent } from 'react';
+import { useState, useMemo, useEffect, MouseEvent } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Card, CardHeader, CardContent } from '../../components/ui/Card';
 import { Button } from '../../components/ui/Button';
@@ -9,6 +9,9 @@ import { ApproverActionButtons } from '../../components/shared/ApproverActionBut
 import { useAppContext } from '../../components/AppContext';
 import { useToast } from '../../components/shared/ToastContext';
 import { transferApprover } from '../../lib/api';
+import { Pagination } from '../../components/ui/Pagination';
+
+const ITEMS_PER_PAGE = 15;
 
 function getAgingInfo(submittedAt: string | undefined, createdAt: string) {
   const start = new Date(submittedAt || createdAt).getTime();
@@ -26,6 +29,7 @@ export function ApprovalQueue() {
 
   const [filter, setFilter] = useState('All');
   const [transferringId, setTransferringId] = useState<string | null>(null);
+  const [currentPage, setCurrentPage] = useState(1);
 
   const handleTransfer = async (claimId: string, e: MouseEvent) => {
     e.stopPropagation();
@@ -77,6 +81,13 @@ export function ApprovalQueue() {
   if (filter === 'Stale') displayedClaims = pendingClaims.filter(c => c.approverStaleSince);
 
   const staleClaims = pendingClaims.filter(c => c.approverStaleSince);
+
+  const totalPages = Math.ceil(displayedClaims.length / ITEMS_PER_PAGE);
+  const paginatedClaims = displayedClaims.slice((currentPage - 1) * ITEMS_PER_PAGE, currentPage * ITEMS_PER_PAGE);
+
+  useEffect(() => {
+    setCurrentPage(1);
+  }, [filter]);
 
   return (
     <div className="space-y-6 animate-in fade-in duration-500">
@@ -135,7 +146,7 @@ export function ApprovalQueue() {
                     <p className="font-label-md">You're all caught up!</p>
                   </td>
                 </tr>
-              ) : displayedClaims.map(claim => {
+              ) : paginatedClaims.map(claim => {
                 const req = users.find(u => u.id === claim.requestorId) || users[0];
                 const aging = getAgingInfo(claim.submittedAt, claim.createdAt);
                 return (
@@ -206,6 +217,7 @@ export function ApprovalQueue() {
             </tbody>
           </table>
         </div>
+        <Pagination currentPage={currentPage} totalPages={totalPages} onPageChange={setCurrentPage} />
       </Card>
     </div>
   );

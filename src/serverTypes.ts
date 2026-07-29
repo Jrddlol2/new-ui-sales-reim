@@ -23,6 +23,15 @@ export interface User {
   can_approve_reimbursements?: boolean;
   notification_prefs?: Record<string, { inApp: boolean; email: boolean }>;
   avatar_url?: string;
+
+  // Phase 3 (O365/Entra ID) prep — see docs/PROTOTYPE-AUDIT.md, "Target
+  // integration: Office 365 / Microsoft Entra ID". These are the join keys a
+  // validated Entra JWT will actually carry (`oid` claim, `preferred_username`
+  // UPN); populating them on the seed now — even with fake values — means
+  // getUser() and every id-shaped field below can resolve on them today, so
+  // swapping the auth source later doesn't require touching the data model.
+  entra_object_id?: string;
+  user_principal_name?: string;
 }
 
 export enum DelegationStatus {

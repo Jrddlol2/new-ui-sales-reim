@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { Card } from '../../components/ui/Card';
 import { Button } from '../../components/ui/Button';
 import { Input } from '../../components/ui/Input';
@@ -6,6 +6,9 @@ import { useAppContext } from '../../components/AppContext';
 import { useToast } from '../../components/shared/ToastContext';
 import { createMasterData, updateMasterData } from '../../lib/api';
 import { MasterData as IMasterData } from '../../types';
+import { Pagination } from '../../components/ui/Pagination';
+
+const ITEMS_PER_PAGE = 15;
 
 export function MasterData() {
   const { masterData, refresh } = useAppContext();
@@ -14,8 +17,15 @@ export function MasterData() {
   const [editingId, setEditingId] = useState<string | null>(null);
   const [editForm, setEditForm] = useState<Partial<IMasterData>>({});
   const [saving, setSaving] = useState(false);
+  const [currentPage, setCurrentPage] = useState(1);
 
   const displayedData = masterData.filter(d => d.type === activeTab);
+  const totalPages = Math.ceil(displayedData.length / ITEMS_PER_PAGE);
+  const paginatedData = displayedData.slice((currentPage - 1) * ITEMS_PER_PAGE, currentPage * ITEMS_PER_PAGE);
+
+  useEffect(() => {
+    setCurrentPage(1);
+  }, [activeTab]);
 
   const handleSave = async () => {
     const body = {
@@ -87,7 +97,7 @@ export function MasterData() {
                     <p className="font-label-md">No records found for this catalog.</p>
                   </td>
                 </tr>
-              ) : displayedData.map(item => (
+              ) : paginatedData.map(item => (
                 <tr key={item.id} className="hover:bg-primary-fixed/5 transition-colors">
                   {editingId === item.id ? (
                     <>
@@ -140,6 +150,7 @@ export function MasterData() {
             </tbody>
           </table>
         </div>
+        <Pagination currentPage={currentPage} totalPages={totalPages} onPageChange={setCurrentPage} />
       </Card>
     </div>
   );

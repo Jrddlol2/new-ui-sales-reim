@@ -510,8 +510,39 @@ export async function loadWorkspace(): Promise<WorkspaceData> {
 
 // --- audit / support / delegation reads and mutations ---------------------
 
-/** Full immutable event feed — admin only. Fetched on demand by the Audit page. */
-export const fetchAuditHistory = () => apiFetch('/api/history');
+function toQueryString(params?: Record<string, string | number | undefined>): string {
+  if (!params) return '';
+  const entries = Object.entries(params).filter(([, v]) => v !== undefined && v !== '');
+  if (entries.length === 0) return '';
+  return '?' + new URLSearchParams(entries.map(([k, v]) => [k, String(v)])).toString();
+}
+
+export interface PageResult<T> {
+  items: T[];
+  total: number;
+  page: number;
+  pageSize: number;
+  /** Present on /api/outbox only: unread count across the whole (unsearched) set. */
+  unreadTotal?: number;
+}
+
+/**
+ * Full immutable event feed — admin only. Fetched on demand by the Audit page.
+ * With no args, returns the plain array (AdminDashboard's "recent activity"
+ * call, via `limit`). With `page`/`pageSize`, the server returns a
+ * `PageResult` instead — that's the shape AuditLog.tsx uses.
+ */
+export const fetchAuditHistory = (params?: { page?: number; pageSize?: number; search?: string; limit?: number }) =>
+  apiFetch(`/api/history${toQueryString(params as any)}`);
+
+/**
+ * Admin's full outbox, paginated + searched server-side. With no args this
+ * is the same plain array `loadWorkspace` has always fetched; with
+ * `page`/`pageSize` the server returns a `PageResult` — used by the
+ * System Emails admin page instead of paging through the context copy.
+ */
+export const fetchOutbox = (params?: { page?: number; pageSize?: number; search?: string }) =>
+  apiFetch(`/api/outbox${toQueryString(params as any)}`);
 
 /** One support request with its full message thread. */
 export const fetchSupportRequest = (id: string) => apiFetch(`/api/support/${id}`);
