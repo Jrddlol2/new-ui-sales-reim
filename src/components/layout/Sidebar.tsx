@@ -55,6 +55,7 @@ const getNavItems = (role: UserRole): NavItem[] => {
       { label: 'Processing Queue', icon: 'payments', path: '/disbursements', badgeKey: 'processing' },
       { label: 'Ready to Claim', icon: 'outbox', path: '/ready-to-claim', badgeKey: 'readyToClaim' },
       { label: 'Transaction History', icon: 'history', path: '/transactions' },
+      { label: 'Analytics', icon: 'monitoring', path: '/custodian/analytics' },
       { label: 'Notifications', icon: 'notifications', path: '/notifications', badgeKey: 'notifications' },
       { label: 'Support', icon: 'help', path: '/support' },
       { label: 'Settings', icon: 'settings', path: '/settings' },

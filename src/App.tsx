@@ -22,6 +22,7 @@ import { ReadyToClaimQueue } from './pages/custodian/ReadyToClaimQueue';
 import { AdminDashboard } from './pages/admin/AdminDashboard';
 import { UserRole } from './types';
 import { TransactionHistory } from './pages/custodian/TransactionHistory';
+import { CustodianAnalytics } from './pages/custodian/CustodianAnalytics';
 import { AuditLog } from './pages/admin/AuditLog';
 import { UserAccounts } from './pages/admin/UserAccounts';
 import { MOMs } from './pages/shared/MOMs';
@@ -80,6 +81,7 @@ function RoleBasedRouter() {
         <Route path="/disbursements" element={<ProcessingQueue />} />
         <Route path="/ready-to-claim" element={<ReadyToClaimQueue />} />
         <Route path="/transactions" element={<TransactionHistory />} />
+        <Route path="/custodian/analytics" element={<CustodianAnalytics />} />
         
         {/* Admin */}
         <Route path="/admin/users" element={<UserAccounts />} />

@@ -10,12 +10,15 @@ import { useAppContext } from '../../components/AppContext';
 import { ClaimStatus } from '../../types';
 import { formatMoney } from '../../lib/money';
 import { formatLongDate } from '../../lib/date';
+import { ResponsiveContainer, BarChart, Bar, XAxis, YAxis, Tooltip, PieChart, Pie, Cell } from 'recharts';
 
 const ACTIVE_STATUSES = [ClaimStatus.DRAFT, ClaimStatus.PENDING_APPROVAL, ClaimStatus.PROCESSING, ClaimStatus.READY_FOR_CLAIM];
 const LIQUIDATION_DEADLINE_DAYS = 7; // mirrors server.ts's LIQUIDATION_DEADLINE_DAYS
+const CATEGORY_COLORS = ['#004ac6', '#2563eb', '#565e74', '#943700', '#bc4800', '#9ca3af'];
+const SPEND_TREND_MONTHS = 6;
 
 export function RequestorDashboard() {
-  const { currentUser, claims, users } = useAppContext();
+  const { currentUser, claims, users, lineItems } = useAppContext();
   const navigate = useNavigate();
 
   const myClaims = claims.filter(c => c.requestorId === currentUser.id);
@@ -44,6 +47,33 @@ export function RequestorDashboard() {
   const mostRecentClaim = useMemo(() => {
     const submitted = myClaims.filter(c => c.status !== ClaimStatus.DRAFT);
     return submitted.slice().sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime())[0];
+  }, [myClaims]);
+
+  const myClaimIds = useMemo(() => new Set(myClaims.map(c => c.id)), [myClaims]);
+  const categorySpend = useMemo(() => {
+    const totals: Record<string, number> = {};
+    lineItems.filter(li => myClaimIds.has(li.claimId)).forEach(li => {
+      totals[li.category] = (totals[li.category] || 0) + li.amount;
+    });
+    return Object.entries(totals)
+      .map(([name, amount]) => ({ name, amount: Number(amount.toFixed(2)) }))
+      .sort((a, b) => b.amount - a.amount);
+  }, [lineItems, myClaimIds]);
+
+  const spendTrend = useMemo(() => {
+    const buckets: { key: string; label: string; amount: number }[] = [];
+    const now = new Date();
+    for (let i = SPEND_TREND_MONTHS - 1; i >= 0; i--) {
+      const d = new Date(now.getFullYear(), now.getMonth() - i, 1);
+      buckets.push({ key: `${d.getFullYear()}-${d.getMonth()}`, label: d.toLocaleDateString(undefined, { month: 'short' }), amount: 0 });
+    }
+    const byKey = new Map(buckets.map(b => [b.key, b]));
+    myClaims.forEach(c => {
+      const d = new Date(c.createdAt);
+      const bucket = byKey.get(`${d.getFullYear()}-${d.getMonth()}`);
+      if (bucket) bucket.amount += c.total;
+    });
+    return buckets;
   }, [myClaims]);
 
   return (
@@ -161,6 +191,45 @@ export function RequestorDashboard() {
           <LiquidationProgressCard claims={myClaims} />
           <ClaimProgressTracker claim={mostRecentClaim} users={users} />
         </div>
+      </div>
+
+      {/* Analytics */}
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
+        <Card>
+          <CardHeader className="bg-surface-container-low border-b border-outline-variant">
+            <h3 className="font-headline-sm text-on-surface">Spend by Category</h3>
+          </CardHeader>
+          <CardContent className="p-6 h-72">
+            {categorySpend.length === 0 ? (
+              <div className="h-full flex items-center justify-center text-outline">No expense items yet</div>
+            ) : (
+              <ResponsiveContainer width="100%" height="100%">
+                <PieChart>
+                  <Pie data={categorySpend} dataKey="amount" nameKey="name" cx="50%" cy="50%" innerRadius={50} outerRadius={85} paddingAngle={2}>
+                    {categorySpend.map((entry, i) => <Cell key={entry.name} fill={CATEGORY_COLORS[i % CATEGORY_COLORS.length]} />)}
+                  </Pie>
+                  <Tooltip formatter={(value: any) => [formatMoney(value), 'Spend']} />
+                </PieChart>
+              </ResponsiveContainer>
+            )}
+          </CardContent>
+        </Card>
+
+        <Card>
+          <CardHeader className="bg-surface-container-low border-b border-outline-variant">
+            <h3 className="font-headline-sm text-on-surface">Spend Trend — Last {SPEND_TREND_MONTHS} Months</h3>
+          </CardHeader>
+          <CardContent className="p-6 h-72">
+            <ResponsiveContainer width="100%" height="100%">
+              <BarChart data={spendTrend}>
+                <XAxis dataKey="label" stroke="#888888" fontSize={12} />
+                <YAxis stroke="#888888" fontSize={12} tickFormatter={val => formatMoney(val)} width={70} />
+                <Tooltip formatter={(value: any) => [formatMoney(value), 'Spend']} />
+                <Bar dataKey="amount" fill="#004ac6" radius={[4, 4, 0, 0]} />
+              </BarChart>
+            </ResponsiveContainer>
+          </CardContent>
+        </Card>
       </div>
     </div>
   );

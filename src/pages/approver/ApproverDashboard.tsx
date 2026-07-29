@@ -1,16 +1,19 @@
 import { useMemo, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Card, CardHeader } from '../../components/ui/Card';
+import { Card, CardHeader, CardContent } from '../../components/ui/Card';
 import { Button } from '../../components/ui/Button';
 import { StatusBadge } from '../../components/ui/StatusBadge';
 import { useAppContext } from '../../components/AppContext';
 import { ClaimStatus } from '../../types';
 import { formatMoney } from '../../lib/money';
 import { formatDateTime, formatLongDate } from '../../lib/date';
+import { ResponsiveContainer, BarChart, Bar, XAxis, YAxis, Tooltip, Legend, PieChart, Pie, Cell } from 'recharts';
 
 const DECISION_STATUSES: string[] = [ClaimStatus.APPROVED, ClaimStatus.REJECTED, ClaimStatus.RETURNED];
 const PENDING_STATUSES: string[] = [ClaimStatus.PENDING_APPROVAL, ClaimStatus.SUBMITTED];
 const ONE_WEEK_MS = 7 * 24 * 60 * 60 * 1000;
+const DECISIONS_TREND_MONTHS = 6;
+const TYPE_COLORS: Record<string, string> = { 'Reimbursement': '#004ac6', 'Cash Advance': '#2563eb', 'Liquidation': '#943700' };
 
 export function ApproverDashboard() {
   const navigate = useNavigate();
@@ -70,6 +73,31 @@ export function ApproverDashboard() {
     if (durationsMs.length === 0) return null;
     return durationsMs.reduce((a, b) => a + b, 0) / durationsMs.length / (1000 * 60 * 60);
   }, [myDecisions, statusHistory]);
+
+  const decisionsTrend = useMemo(() => {
+    const buckets: { key: string; label: string; Approved: number; Rejected: number; Returned: number }[] = [];
+    const now = new Date();
+    for (let i = DECISIONS_TREND_MONTHS - 1; i >= 0; i--) {
+      const d = new Date(now.getFullYear(), now.getMonth() - i, 1);
+      buckets.push({ key: `${d.getFullYear()}-${d.getMonth()}`, label: d.toLocaleDateString(undefined, { month: 'short' }), Approved: 0, Rejected: 0, Returned: 0 });
+    }
+    const byKey = new Map(buckets.map(b => [b.key, b]));
+    myDecisions.forEach(h => {
+      const d = new Date(h.timestamp);
+      const bucket = byKey.get(`${d.getFullYear()}-${d.getMonth()}`);
+      if (!bucket) return;
+      if (h.newStatus === ClaimStatus.APPROVED) bucket.Approved++;
+      else if (h.newStatus === ClaimStatus.REJECTED) bucket.Rejected++;
+      else if (h.newStatus === ClaimStatus.RETURNED) bucket.Returned++;
+    });
+    return buckets;
+  }, [myDecisions]);
+
+  const pendingByType = useMemo(() => {
+    const counts: Record<string, number> = {};
+    myPending.forEach(c => { counts[c.type] = (counts[c.type] || 0) + 1; });
+    return Object.entries(counts).map(([name, count]) => ({ name, count }));
+  }, [myPending]);
 
   const exportWorklist = () => {
     const rows = [
@@ -252,6 +280,49 @@ export function ApproverDashboard() {
             </Button>
           </div>
           <div className="absolute -bottom-10 -right-10 w-40 h-40 bg-primary/5 rounded-full blur-3xl"></div>
+        </Card>
+      </div>
+
+      {/* Analytics */}
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
+        <Card>
+          <CardHeader className="bg-surface-container-low border-b border-outline-variant">
+            <h3 className="font-headline-sm text-on-surface">Decisions — Last {DECISIONS_TREND_MONTHS} Months</h3>
+          </CardHeader>
+          <CardContent className="p-6 h-72">
+            <ResponsiveContainer width="100%" height="100%">
+              <BarChart data={decisionsTrend}>
+                <XAxis dataKey="label" stroke="#888888" fontSize={12} />
+                <YAxis stroke="#888888" fontSize={12} allowDecimals={false} width={30} />
+                <Tooltip />
+                <Legend wrapperStyle={{ fontSize: 12 }} />
+                <Bar dataKey="Approved" stackId="a" fill="#004ac6" />
+                <Bar dataKey="Returned" stackId="a" fill="#943700" />
+                <Bar dataKey="Rejected" stackId="a" fill="#ba1a1a" radius={[4, 4, 0, 0]} />
+              </BarChart>
+            </ResponsiveContainer>
+          </CardContent>
+        </Card>
+
+        <Card>
+          <CardHeader className="bg-surface-container-low border-b border-outline-variant">
+            <h3 className="font-headline-sm text-on-surface">Pending Queue by Type</h3>
+          </CardHeader>
+          <CardContent className="p-6 h-72">
+            {pendingByType.length === 0 ? (
+              <div className="h-full flex items-center justify-center text-outline">Queue is empty</div>
+            ) : (
+              <ResponsiveContainer width="100%" height="100%">
+                <PieChart>
+                  <Pie data={pendingByType} dataKey="count" nameKey="name" cx="50%" cy="50%" innerRadius={50} outerRadius={85} paddingAngle={2}>
+                    {pendingByType.map(entry => <Cell key={entry.name} fill={TYPE_COLORS[entry.name] || '#9ca3af'} />)}
+                  </Pie>
+                  <Tooltip formatter={(value: any) => [`${value} claim${value === 1 ? '' : 's'}`, undefined]} />
+                  <Legend wrapperStyle={{ fontSize: 12 }} />
+                </PieChart>
+              </ResponsiveContainer>
+            )}
+          </CardContent>
         </Card>
       </div>
     </div>
