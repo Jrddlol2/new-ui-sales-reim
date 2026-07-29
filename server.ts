@@ -3671,6 +3671,18 @@ You'll receive another email as soon as a decision is made.`
             { timestamp: approvedAt }
           );
 
+          // Mirrors the live /decide route: every custodian gets notified
+          // once a claim is approved and lands in their processing queue.
+          users.filter(u => u.role === UserRole.CUSTODIAN).forEach(custodian => {
+            sendEmail(
+              custodian.id,
+              `Reimbursement Processing Required - ${claimNumber}`,
+              `Reimbursement request ${claimNumber} submitted by ${requestorName} and approved by ${approverName} is now in your processing queue.\n\nRequired Action:\nPlease generate the Claim Code, release the payment, and mark it as Ready for Claim.`,
+              undefined,
+              { timestamp: approvedAt }
+            );
+          });
+
           if (opts.status !== ClaimStatus.APPROVED) {
             statusHistories.push({
               id: uuidv4(),
