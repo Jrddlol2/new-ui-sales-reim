@@ -3,10 +3,11 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-import { useState } from 'react';
-import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
+import { useState, type ReactNode } from 'react';
+import { BrowserRouter, Routes, Route, Navigate, useLocation } from 'react-router-dom';
 import { AppProvider, useAppContext } from './components/AppContext';
 import { ToastProvider } from './components/shared/ToastContext';
+import { ErrorBoundary } from './components/shared/ErrorBoundary';
 import { Layout } from './components/layout/Layout';
 import { Login } from './pages/Login';
 import { isLoggedIn } from './lib/api';
@@ -36,6 +37,14 @@ import { FieldDefinitionsAdmin } from './pages/admin/FieldDefinitionsAdmin';
 import { AdminReporting } from './pages/admin/AdminReporting';
 import { SystemEmails } from './pages/admin/SystemEmails';
 import { HistoricalImport } from './pages/admin/HistoricalImport';
+
+// A route that throws shouldn't white-screen the whole app, and navigating
+// away from the broken page should recover automatically — keying the
+// boundary by pathname remounts it (and clears the error) on every nav.
+function RouteErrorBoundary({ children }: { children: ReactNode }) {
+  const location = useLocation();
+  return <ErrorBoundary key={location.pathname}>{children}</ErrorBoundary>;
+}
 
 function RoleBasedRouter() {
   const { currentUser } = useAppContext();
@@ -105,7 +114,9 @@ export default function App() {
     <AppProvider>
       <ToastProvider>
         <BrowserRouter>
-          <RoleBasedRouter />
+          <RouteErrorBoundary>
+            <RoleBasedRouter />
+          </RouteErrorBoundary>
         </BrowserRouter>
       </ToastProvider>
     </AppProvider>
