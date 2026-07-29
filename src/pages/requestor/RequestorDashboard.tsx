@@ -4,6 +4,8 @@ import { KPICard } from '../../components/ui/KPICard';
 import { Button } from '../../components/ui/Button';
 import { Card, CardHeader, CardContent } from '../../components/ui/Card';
 import { StatusBadge } from '../../components/ui/StatusBadge';
+import { LiquidationProgressCard } from '../../components/shared/LiquidationProgressCard';
+import { ClaimProgressTracker } from '../../components/shared/ClaimProgressTracker';
 import { useAppContext } from '../../components/AppContext';
 import { ClaimStatus } from '../../types';
 import { formatMoney } from '../../lib/money';
@@ -13,7 +15,7 @@ const ACTIVE_STATUSES = [ClaimStatus.DRAFT, ClaimStatus.PENDING_APPROVAL, ClaimS
 const LIQUIDATION_DEADLINE_DAYS = 7; // mirrors server.ts's LIQUIDATION_DEADLINE_DAYS
 
 export function RequestorDashboard() {
-  const { currentUser, claims } = useAppContext();
+  const { currentUser, claims, users } = useAppContext();
   const navigate = useNavigate();
 
   const myClaims = claims.filter(c => c.requestorId === currentUser.id);
@@ -21,7 +23,6 @@ export function RequestorDashboard() {
   const completedClaims = myClaims.filter(c => c.status === ClaimStatus.COMPLETED);
   const totalReimbursed = completedClaims.reduce((acc, c) => acc + c.total, 0);
 
-  // Cash advances this requestor has received but not yet liquidated.
   const openAdvances = useMemo(
     () => myClaims.filter(c => c.type === 'Cash Advance' && c.status === ClaimStatus.RELEASED),
     [myClaims]
@@ -38,6 +39,12 @@ export function RequestorDashboard() {
 
   const readyForClaim = myClaims.filter(c => c.status === ClaimStatus.READY_FOR_CLAIM);
   const readyForClaimTotal = readyForClaim.reduce((acc, c) => acc + c.total, 0);
+
+  // Most recently submitted (non-draft) claim, for the progress tracker.
+  const mostRecentClaim = useMemo(() => {
+    const submitted = myClaims.filter(c => c.status !== ClaimStatus.DRAFT);
+    return submitted.slice().sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime())[0];
+  }, [myClaims]);
 
   return (
     <div className="space-y-8 animate-in fade-in duration-500">
@@ -151,22 +158,8 @@ export function RequestorDashboard() {
 
         {/* Side Panel */}
         <div className="flex flex-col gap-4">
-          <div className="bg-primary-container text-white p-6 rounded-[14px] shadow-sm relative overflow-hidden">
-            <div className="relative z-10">
-              <h4 className="font-headline-md mb-2">Liquidation Progress</h4>
-              {openAdvances.length === 0 ? (
-                <p className="font-body-base opacity-80 mb-2">You have no outstanding cash advances to liquidate.</p>
-              ) : (
-                <>
-                  <p className="font-body-base opacity-80 mb-6">
-                    You have {openAdvances.length} cash advance{openAdvances.length === 1 ? '' : 's'} outstanding
-                    {overdueAdvances.length > 0 && <>, <span className="font-bold">{overdueAdvances.length} past the {LIQUIDATION_DEADLINE_DAYS}-day deadline</span></>}.
-                  </p>
-                  <Button variant="secondary" className="w-full font-bold" onClick={() => navigate('/claims/new?type=liquidation')}>Start a Liquidation</Button>
-                </>
-              )}
-            </div>
-          </div>
+          <LiquidationProgressCard claims={myClaims} />
+          <ClaimProgressTracker claim={mostRecentClaim} users={users} />
         </div>
       </div>
     </div>

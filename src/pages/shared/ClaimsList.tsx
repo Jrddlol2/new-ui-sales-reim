@@ -5,6 +5,8 @@ import { Button } from '../../components/ui/Button';
 import { Input, Select } from '../../components/ui/Input';
 import { StatusBadge } from '../../components/ui/StatusBadge';
 import { KPICard } from '../../components/ui/KPICard';
+import { LiquidationProgressCard } from '../../components/shared/LiquidationProgressCard';
+import { ClaimProgressTracker } from '../../components/shared/ClaimProgressTracker';
 import { useAppContext } from '../../components/AppContext';
 import { Pagination } from '../../components/ui/Pagination';
 import { ClaimStatus, UserRole } from '../../types';
@@ -13,7 +15,7 @@ import { formatMoney } from '../../lib/money';
 const ACTIVE_STATUSES = [ClaimStatus.DRAFT, ClaimStatus.PENDING_APPROVAL, ClaimStatus.PROCESSING, ClaimStatus.READY_FOR_CLAIM];
 
 export function ClaimsList() {
-  const { currentUser, claims } = useAppContext();
+  const { currentUser, claims, users } = useAppContext();
   const navigate = useNavigate();
 
   const [searchQuery, setSearchQuery] = useState('');
@@ -34,6 +36,12 @@ export function ClaimsList() {
   const unliquidatedFloat = openAdvances.reduce((acc, c) => acc + c.total, 0);
   const readyForClaim = myClaims.filter(c => c.status === ClaimStatus.READY_FOR_CLAIM);
   const readyForClaimTotal = readyForClaim.reduce((acc, c) => acc + c.total, 0);
+
+  // Most recently submitted (non-draft) claim, for the progress tracker.
+  const mostRecentClaim = useMemo(() => {
+    const submitted = myClaims.filter(c => c.status !== ClaimStatus.DRAFT);
+    return submitted.slice().sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime())[0];
+  }, [myClaims]);
 
   const filteredClaims = useMemo(() => {
     return myClaims.filter(claim => {
@@ -106,6 +114,11 @@ export function ClaimsList() {
               </div>
             </Card>
           )}
+
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-6">
+            <LiquidationProgressCard claims={myClaims} />
+            <ClaimProgressTracker claim={mostRecentClaim} users={users} />
+          </div>
         </>
       )}
 
