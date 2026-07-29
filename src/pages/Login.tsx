@@ -7,6 +7,7 @@ interface RawUser {
   role: string;
   department: string;
   job_title: string;
+  avatar_url?: string;
 }
 
 /**
@@ -64,9 +65,13 @@ export function Login({ onLoggedIn }: { onLoggedIn: () => void }) {
                       onClick={() => { login(u.id); onLoggedIn(); }}
                       className="flex items-center gap-3 p-3 bg-white border border-outline-variant rounded-lg hover:border-primary hover:shadow-sm transition-all text-left"
                     >
-                      <div className="w-9 h-9 rounded-full bg-secondary-container flex items-center justify-center font-bold text-on-secondary-container text-sm flex-shrink-0">
-                        {u.name.split(' ').map(n => n[0]).join('')}
-                      </div>
+                      {u.avatar_url ? (
+                        <img src={u.avatar_url} alt="" className="w-9 h-9 rounded-full object-cover flex-shrink-0" />
+                      ) : (
+                        <div className="w-9 h-9 rounded-full bg-secondary-container flex items-center justify-center font-bold text-on-secondary-container text-sm flex-shrink-0">
+                          {u.name.split(' ').map(n => n[0]).join('')}
+                        </div>
+                      )}
                       <div className="min-w-0">
                         <p className="font-label-md text-on-surface truncate">{u.name}</p>
                         <p className="text-body-sm text-outline truncate">{u.job_title}</p>

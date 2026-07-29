@@ -35,6 +35,18 @@ export function CustodianDashboard() {
     return counts;
   }, [processingClaims]);
 
+  // Distinct requestors actually in the queue, not a fixed decorative stack.
+  const queueRequestors = useMemo(() => {
+    const seen = new Set<string>();
+    const list: typeof users = [];
+    for (const c of processingClaims) {
+      if (seen.has(c.requestorId)) continue;
+      const u = users.find(u => u.id === c.requestorId);
+      if (u) { seen.add(u.id); list.push(u); }
+    }
+    return list;
+  }, [processingClaims, users]);
+
   return (
     <div className="space-y-8 animate-in fade-in duration-500">
       <div className="flex justify-between items-end">
@@ -95,11 +107,24 @@ export function CustodianDashboard() {
         <CardHeader className="bg-surface-container-low">
           <div className="flex items-center gap-4">
             <h3 className="font-label-md uppercase tracking-wider text-on-surface">Claims Awaiting Processing</h3>
-            <div className="flex -space-x-2">
-              <div className="w-8 h-8 rounded-full border-2 border-surface-container-lowest bg-primary-fixed flex items-center justify-center text-[10px] font-bold">AS</div>
-              <div className="w-8 h-8 rounded-full border-2 border-surface-container-lowest bg-secondary-fixed flex items-center justify-center text-[10px] font-bold">MK</div>
-              <div className="w-8 h-8 rounded-full border-2 border-surface-container-lowest bg-tertiary-fixed flex items-center justify-center text-[10px] font-bold">+5</div>
-            </div>
+            {queueRequestors.length > 0 && (
+              <div className="flex -space-x-2">
+                {queueRequestors.slice(0, 3).map(u => (
+                  u.avatarUrl ? (
+                    <img key={u.id} src={u.avatarUrl} alt={u.name} title={u.name} className="w-8 h-8 rounded-full border-2 border-surface-container-lowest object-cover" />
+                  ) : (
+                    <div key={u.id} title={u.name} className="w-8 h-8 rounded-full border-2 border-surface-container-lowest bg-primary-fixed flex items-center justify-center text-[10px] font-bold">
+                      {u.name.split(' ').map(n => n[0]).join('')}
+                    </div>
+                  )
+                ))}
+                {queueRequestors.length > 3 && (
+                  <div className="w-8 h-8 rounded-full border-2 border-surface-container-lowest bg-tertiary-fixed flex items-center justify-center text-[10px] font-bold">
+                    +{queueRequestors.length - 3}
+                  </div>
+                )}
+              </div>
+            )}
           </div>
           <div className="flex items-center gap-2">
             <span className="font-label-sm text-outline">Viewing {processingClaims.length > 0 ? `1-${processingClaims.length}` : '0'} of {processingClaims.length}</span>
@@ -135,7 +160,11 @@ export function CustodianDashboard() {
                     <td className="px-6 py-5 font-mono-data text-primary font-bold">{claim.ref}</td>
                     <td className="px-6 py-5">
                       <div className="flex items-center gap-3">
-                        <div className="w-8 h-8 rounded-full bg-surface-container-high flex items-center justify-center text-xs font-semibold">{req.name.split(' ').map(n=>n[0]).join('')}</div>
+                        {req.avatarUrl ? (
+                          <img src={req.avatarUrl} alt="" className="w-8 h-8 rounded-full object-cover" />
+                        ) : (
+                          <div className="w-8 h-8 rounded-full bg-surface-container-high flex items-center justify-center text-xs font-semibold">{req.name.split(' ').map(n=>n[0]).join('')}</div>
+                        )}
                         <div>
                           <p className="text-sm font-bold">{req.name}</p>
                           <p className="text-xs text-outline">{req.department}</p>

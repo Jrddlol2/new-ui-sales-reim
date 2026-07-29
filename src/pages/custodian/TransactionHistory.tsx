@@ -94,7 +94,11 @@ export function TransactionHistory() {
                     <td className="px-6 py-5 font-mono-data text-primary font-bold">{claim.ref}</td>
                     <td className="px-6 py-5">
                       <div className="flex items-center gap-3">
-                        <div className="w-8 h-8 rounded-full bg-surface-container-high flex items-center justify-center text-xs font-semibold">{req.name.split(' ').map(n=>n[0]).join('')}</div>
+                        {req.avatarUrl ? (
+                          <img src={req.avatarUrl} alt="" className="w-8 h-8 rounded-full object-cover" />
+                        ) : (
+                          <div className="w-8 h-8 rounded-full bg-surface-container-high flex items-center justify-center text-xs font-semibold">{req.name.split(' ').map(n=>n[0]).join('')}</div>
+                        )}
                         <div>
                           <p className="text-sm font-bold">{req.name}</p>
                           <p className="text-xs text-outline">{req.department}</p>

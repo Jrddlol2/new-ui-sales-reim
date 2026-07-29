@@ -22,6 +22,7 @@ export interface User {
   employment_status?: 'Active' | 'Inactive';
   can_approve_reimbursements?: boolean;
   notification_prefs?: Record<string, { inApp: boolean; email: boolean }>;
+  avatar_url?: string;
 }
 
 export enum DelegationStatus {

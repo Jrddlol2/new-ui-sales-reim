@@ -145,6 +145,7 @@ export function fromServerUser(u: any): User {
     employmentStatus: u.employment_status === 'Inactive' ? 'Inactive' : 'Active',
     canApproveReimbursements: Boolean(u.can_approve_reimbursements),
     notificationPrefs: u.notification_prefs || undefined,
+    avatarUrl: u.avatar_url || undefined,
   };
 }
 
