@@ -120,7 +120,9 @@ export function ClaimDetail() {
           </div>
         </div>
         <div className="flex flex-wrap items-center gap-3 shrink-0">
-          <Button variant="outline" onClick={() => window.print()}>Export PDF</Button>
+          <Button variant="outline" className="gap-2" onClick={() => window.print()}>
+            <span className="material-symbols-outlined text-[18px]">print</span> Print
+          </Button>
           {isApprover && <ApproverActionButtons claim={claim} size="md" />}
           {isCustodian && <CustodianActionButtons claim={claim} size="md" />}
           {canConfirmReceipt && (
