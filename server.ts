@@ -1114,6 +1114,15 @@ If no action is taken within ${STALE_APPROVER_FALLBACK_DAYS} days, this will be 
     res.json(user);
   });
 
+  // Self-service notification preferences — any authenticated user can set
+  // their own; unlike PUT /api/users/:id this isn't an admin-only route.
+  app.put('/api/me/notification-prefs', (req, res) => {
+    const user = getUser(req);
+    if (!user) return res.status(401).json({ error: 'Unauthorized' });
+    user.notification_prefs = req.body;
+    res.json(user.notification_prefs);
+  });
+
   // MOM endpoints (accessed for managing meeting notes)
   app.get('/api/moms', (req, res) => {
     const user = getUser(req);

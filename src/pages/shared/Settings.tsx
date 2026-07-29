@@ -5,7 +5,7 @@ import { Button } from '../../components/ui/Button';
 import { Input, Select, Label } from '../../components/ui/Input';
 import { useAppContext } from '../../components/AppContext';
 import { useToast } from '../../components/shared/ToastContext';
-import { requestDelegation, acceptDelegation, declineDelegation, cancelDelegation, ApiError } from '../../lib/api';
+import { requestDelegation, acceptDelegation, declineDelegation, cancelDelegation, updateNotificationPrefs, ApiError } from '../../lib/api';
 import { UserRole, DelegationStatus } from '../../types';
 
 const STATUS_STYLE: Record<string, string> = {
@@ -180,25 +180,43 @@ function DelegationPanel() {
   );
 }
 
+const DEFAULT_NOTIFY_PREFS: Record<string, { inApp: boolean, email: boolean }> = {
+  submitted: { inApp: true, email: true },
+  approved: { inApp: true, email: true },
+  returned: { inApp: true, email: true },
+  ready: { inApp: true, email: false },
+  delegation: { inApp: true, email: true },
+};
+
 export function Settings() {
   const { addToast } = useToast();
-  const { currentUser, resetData } = useAppContext();
+  const { currentUser, refresh, resetData } = useAppContext();
   const [searchParams] = useSearchParams();
   const [activeTab, setActiveTab] = useState(searchParams.get('tab') || 'profile');
+  const [savingPrefs, setSavingPrefs] = useState(false);
 
-  const [notifyPrefs, setNotifyPrefs] = useState<Record<string, { inApp: boolean, email: boolean }>>({
-    submitted: { inApp: true, email: true },
-    approved: { inApp: true, email: true },
-    returned: { inApp: true, email: true },
-    ready: { inApp: true, email: false },
-    delegation: { inApp: true, email: true },
-  });
+  const [notifyPrefs, setNotifyPrefs] = useState<Record<string, { inApp: boolean, email: boolean }>>(
+    (currentUser.notificationPrefs as any) || DEFAULT_NOTIFY_PREFS
+  );
 
   const handleNotifyChange = (key: string, type: 'inApp' | 'email', value: boolean) => {
     setNotifyPrefs(prev => ({
       ...prev,
       [key]: { ...prev[key], [type]: value }
     }));
+  };
+
+  const savePrefs = async () => {
+    setSavingPrefs(true);
+    try {
+      await updateNotificationPrefs(notifyPrefs as any);
+      await refresh();
+      addToast('Notification preferences saved', 'success');
+    } catch (err) {
+      addToast((err as ApiError).message || 'Could not save preferences.', 'error');
+    } finally {
+      setSavingPrefs(false);
+    }
   };
 
   const tabs = [
@@ -279,7 +297,6 @@ export function Settings() {
 
               {activeTab === 'notifications' && (
                 <div className="space-y-6">
-                  {/* TODO(claude): persist settings where a save would call the API */}
                   <div className="overflow-x-auto rounded-lg border border-brand-border bg-surface-container-lowest">
                     <table className="min-w-full divide-y divide-brand-border">
                       <thead className="bg-surface-container-low">
@@ -317,61 +334,21 @@ export function Settings() {
                     </table>
                   </div>
                   <div className="flex justify-end pt-4">
-                    <Button onClick={() => addToast('Notification preferences saved', 'success')}>Save Preferences</Button>
+                    <Button onClick={savePrefs} disabled={savingPrefs}>{savingPrefs ? 'Saving…' : 'Save Preferences'}</Button>
                   </div>
                 </div>
               )}
 
               {activeTab === 'security' && (
-                <div className="space-y-8">
-                  {/* TODO(claude): persist settings where a save would call the API */}
-                  <div>
-                    <h4 className="font-headline-sm text-on-surface mb-4">Change Password</h4>
-                    <div className="space-y-4 max-w-md">
-                      <div>
-                        <Label>Current Password</Label>
-                        <Input type="password" placeholder="Enter current password" />
-                      </div>
-                      <div>
-                        <Label>New Password</Label>
-                        <Input type="password" placeholder="Enter new password" />
-                      </div>
-                      <div>
-                        <Label>Confirm New Password</Label>
-                        <Input type="password" placeholder="Confirm new password" />
-                      </div>
-                      <Button onClick={() => addToast('Password updated successfully', 'success')}>Update Password</Button>
-                    </div>
-                  </div>
-
-                  <div className="pt-6 border-t border-brand-border">
-                    <h4 className="font-headline-sm text-on-surface mb-1">Active Sessions</h4>
-                    <p className="text-body-sm text-outline mb-4">Manage and sign out of your active sessions on other browsers and devices.</p>
-                    
-                    <div className="space-y-3 mb-4">
-                      <div className="flex items-center justify-between p-4 bg-surface-container-low rounded-lg">
-                        <div className="flex items-center gap-3">
-                          <span className="material-symbols-outlined text-on-surface-variant">computer</span>
-                          <div>
-                            <div className="text-sm font-medium text-brand-slate">Mac OS • Chrome</div>
-                            <div className="text-xs text-outline">Manila, PH • Current Session</div>
-                          </div>
-                        </div>
-                        <span className="px-2 py-1 bg-primary/10 text-primary text-xs font-medium rounded-full">Active</span>
-                      </div>
-                      <div className="flex items-center justify-between p-4 bg-surface-container-lowest border border-brand-border rounded-lg">
-                        <div className="flex items-center gap-3">
-                          <span className="material-symbols-outlined text-outline">smartphone</span>
-                          <div>
-                            <div className="text-sm font-medium text-brand-slate">iOS • Safari</div>
-                            <div className="text-xs text-outline">Manila, PH • Last active 2 days ago</div>
-                          </div>
-                        </div>
-                      </div>
-                    </div>
-                    
-                    <Button variant="outline" className="text-error border-error hover:bg-error/10" onClick={() => addToast('Signed out of all other devices', 'success')}>Sign out everywhere else</Button>
-                  </div>
+                <div className="py-12 text-center text-outline max-w-md mx-auto">
+                  <span className="material-symbols-outlined text-4xl mb-2 opacity-50">lock_person</span>
+                  <p className="font-label-md text-on-surface mb-2">Not available in this prototype</p>
+                  <p className="text-sm">
+                    Password and session management depend on real authentication, which
+                    this system doesn't have yet — sign-in is currently a role switcher,
+                    not a login. This tab will be wired up when the app connects to
+                    Microsoft Entra ID sign-in.
+                  </p>
                 </div>
               )}
             </CardContent>

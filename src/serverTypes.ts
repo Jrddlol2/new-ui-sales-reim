@@ -21,6 +21,7 @@ export interface User {
   // departures so their pending approvals get escalated the same as a demotion).
   employment_status?: 'Active' | 'Inactive';
   can_approve_reimbursements?: boolean;
+  notification_prefs?: Record<string, { inApp: boolean; email: boolean }>;
 }
 
 export enum DelegationStatus {

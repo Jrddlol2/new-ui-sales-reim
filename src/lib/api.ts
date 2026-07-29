@@ -16,6 +16,7 @@ import {
   StatusHistory, MasterData, FieldDefinition, MinutesSource,
   ReviewMeeting, ReviewMeetingStatus, Company, SystemEmail,
   SupportRequest, SupportRequestStatus, ApproverDelegation, DelegationStatus,
+  NotificationPrefs,
 } from '../types';
 
 // --- transport ------------------------------------------------------------
@@ -143,6 +144,7 @@ export function fromServerUser(u: any): User {
     reportsTo: u.reports_to || undefined,
     employmentStatus: u.employment_status === 'Inactive' ? 'Inactive' : 'Active',
     canApproveReimbursements: Boolean(u.can_approve_reimbursements),
+    notificationPrefs: u.notification_prefs || undefined,
   };
 }
 
@@ -544,6 +546,11 @@ export const declineDelegation = (id: string, reason?: string) =>
 
 /** Approver-side cancel; valid while Pending or Active. */
 export const cancelDelegation = (id: string) => apiFetch(`/api/delegations/${id}/cancel`, { method: 'POST' });
+
+// --- self-service settings --------------------------------------------------
+
+export const updateNotificationPrefs = (prefs: NotificationPrefs) =>
+  apiFetch('/api/me/notification-prefs', { method: 'PUT', body: JSON.stringify(prefs) });
 
 // --- outbound mutations ---------------------------------------------------
 

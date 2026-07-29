@@ -103,6 +103,14 @@ export interface FieldDefinition {
   };
 }
 
+export interface NotificationPrefs {
+  submitted: { inApp: boolean; email: boolean };
+  approved: { inApp: boolean; email: boolean };
+  returned: { inApp: boolean; email: boolean };
+  ready: { inApp: boolean; email: boolean };
+  delegation: { inApp: boolean; email: boolean };
+}
+
 export interface User {
   id: string;
   name: string;
@@ -114,6 +122,7 @@ export interface User {
   employmentStatus: 'Active' | 'Inactive';
   canApproveReimbursements: boolean;
   avatarUrl?: string;
+  notificationPrefs?: NotificationPrefs;
 }
 
 export interface ExpenseLineItem {
