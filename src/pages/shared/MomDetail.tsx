@@ -3,6 +3,7 @@ import { Card, CardHeader, CardContent } from '../../components/ui/Card';
 import { Button } from '../../components/ui/Button';
 import { useAppContext } from '../../components/AppContext';
 import { uploadUrl } from '../../lib/api';
+import { formatDateTime } from '../../lib/date';
 
 export function MomDetail() {
   const { id } = useParams();
@@ -26,7 +27,7 @@ export function MomDetail() {
     );
   }
 
-  const dateStr = mom.meetingDate ? new Date(mom.meetingDate).toLocaleString() : 'No date specified';
+  const dateStr = mom.meetingDate ? formatDateTime(mom.meetingDate) : 'No date specified';
   const linkedClaim = mom.claimId ? claims.find(c => c.id === mom.claimId) : undefined;
   const fileUrl = uploadUrl(mom.fileUrl);
 

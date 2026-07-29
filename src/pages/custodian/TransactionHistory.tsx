@@ -6,6 +6,7 @@ import { StatusBadge } from '../../components/ui/StatusBadge';
 import { useAppContext } from '../../components/AppContext';
 import { ClaimStatus } from '../../types';
 import { formatMoney } from '../../lib/money';
+import { formatDate } from '../../lib/date';
 
 export function TransactionHistory() {
   const { claims, users, statusHistory } = useAppContext();
@@ -102,7 +103,7 @@ export function TransactionHistory() {
                     </td>
                     <td className="px-6 py-5 font-mono-data text-sm font-bold">{formatMoney(claim.total)}</td>
                     <td className="px-6 py-5 text-on-surface-variant text-sm">
-                      {completedAt ? completedAt.toLocaleDateString() : '—'}
+                      {completedAt ? formatDate(completedAt) : '—'}
                     </td>
                     <td className="px-6 py-5 text-on-surface-variant text-sm">{claim.paymentMethod || '—'}</td>
                     <td className="px-6 py-5 font-mono-data text-on-surface-variant text-sm">{claim.paymentReference || claim.releaseReference || '—'}</td>

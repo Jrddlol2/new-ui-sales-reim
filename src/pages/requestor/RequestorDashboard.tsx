@@ -7,6 +7,7 @@ import { StatusBadge } from '../../components/ui/StatusBadge';
 import { useAppContext } from '../../components/AppContext';
 import { ClaimStatus } from '../../types';
 import { formatMoney } from '../../lib/money';
+import { formatLongDate } from '../../lib/date';
 
 const ACTIVE_STATUSES = [ClaimStatus.DRAFT, ClaimStatus.PENDING_APPROVAL, ClaimStatus.PROCESSING, ClaimStatus.READY_FOR_CLAIM];
 const LIQUIDATION_DEADLINE_DAYS = 7; // mirrors server.ts's LIQUIDATION_DEADLINE_DAYS
@@ -44,7 +45,7 @@ export function RequestorDashboard() {
       <div className="flex flex-col md:flex-row md:items-end justify-between gap-4">
         <div>
           <h2 className="font-display text-display text-on-surface">Hello, {currentUser.name.split(' ')[0]}.</h2>
-          <p className="font-body-lg text-body-lg text-on-surface-variant mt-1">Today is {new Date().toLocaleDateString('en-US', { weekday: 'long', month: 'long', day: 'numeric', year: 'numeric' })}</p>
+          <p className="font-body-lg text-body-lg text-on-surface-variant mt-1">Today is {formatLongDate(new Date())}</p>
         </div>
         <div className="flex flex-wrap items-center gap-3">
           <Button variant="outline" className="gap-2" onClick={() => navigate('/claims/new?type=advance')}>
@@ -65,7 +66,7 @@ export function RequestorDashboard() {
               <span className="material-symbols-outlined text-primary text-[28px]">key</span>
               <div>
                 <p className="font-label-md text-on-surface">
-                  {readyForClaim.length} payout{readyForClaim.length === 1 ? '' : 's'} ready — ${readyForClaimTotal.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })} waiting for you
+                  {readyForClaim.length} payout{readyForClaim.length === 1 ? '' : 's'} ready — {formatMoney(readyForClaimTotal)} waiting for you
                 </p>
                 <p className="text-body-sm text-outline">Enter your release code to confirm receipt.</p>
               </div>

@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react';
 import { Card, CardHeader } from '../../components/ui/Card';
 import { fetchAuditHistory } from '../../lib/api';
+import { formatDateTime } from '../../lib/date';
 
 interface AuditEntry {
   id: string;
@@ -95,7 +96,7 @@ export function AuditLog() {
               ) : filtered.slice(0, 500).map(entry => (
                 <tr key={entry.id} className="hover:bg-primary-container/5 transition-colors">
                   <td className="px-6 py-5 font-mono-data text-on-surface-variant text-sm whitespace-nowrap">
-                    {new Date(entry.timestamp).toLocaleString()}
+                    {formatDateTime(entry.timestamp)}
                   </td>
                   <td className="px-6 py-5">
                     {entry.changedBy ? (

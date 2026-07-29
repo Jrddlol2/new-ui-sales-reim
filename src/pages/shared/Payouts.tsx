@@ -60,8 +60,7 @@ export function Payouts() {
           <div className="p-4 flex items-center gap-3">
             <span className="material-symbols-outlined text-primary text-[28px]">payments</span>
             <p className="font-label-md text-on-surface">
-              {readyClaims.length} payout{readyClaims.length === 1 ? '' : 's'} waiting — $
-              {totalWaiting.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })} total
+              {readyClaims.length} payout{readyClaims.length === 1 ? '' : 's'} waiting — {formatMoney(totalWaiting)} total
             </p>
           </div>
         </Card>

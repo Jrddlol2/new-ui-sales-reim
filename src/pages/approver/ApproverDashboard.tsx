@@ -6,6 +6,7 @@ import { StatusBadge } from '../../components/ui/StatusBadge';
 import { useAppContext } from '../../components/AppContext';
 import { ClaimStatus } from '../../types';
 import { formatMoney } from '../../lib/money';
+import { formatDateTime, formatLongDate } from '../../lib/date';
 
 const DECISION_STATUSES: string[] = [ClaimStatus.APPROVED, ClaimStatus.REJECTED, ClaimStatus.RETURNED];
 const PENDING_STATUSES: string[] = [ClaimStatus.PENDING_APPROVAL, ClaimStatus.SUBMITTED];
@@ -94,7 +95,7 @@ export function ApproverDashboard() {
         <h3 className="font-display text-display text-on-surface">Welcome back, {currentUser.name.split(' ')[0]}</h3>
         <div className="flex items-center text-outline mt-1">
           <span className="material-symbols-outlined text-[18px] mr-2">calendar_today</span>
-          <p className="font-label-md text-label-md">{new Date().toLocaleDateString('en-US', { weekday: 'long', month: 'long', day: 'numeric', year: 'numeric' })}</p>
+          <p className="font-label-md text-label-md">{formatLongDate(new Date())}</p>
         </div>
       </div>
 
@@ -222,7 +223,7 @@ export function ApproverDashboard() {
                     <div className="pb-2">
                       <p className="font-label-md text-on-surface">{claim ? `${claim.ref} — ${h.newStatus}` : h.newStatus}</p>
                       {h.comment && <p className="text-body-sm text-outline">{h.comment}</p>}
-                      <p className="text-[11px] text-outline mt-1">{new Date(h.timestamp).toLocaleString()}</p>
+                      <p className="text-[11px] text-outline mt-1">{formatDateTime(h.timestamp)}</p>
                     </div>
                   </div>
                 );

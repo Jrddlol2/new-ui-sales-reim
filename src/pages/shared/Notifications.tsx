@@ -4,6 +4,7 @@ import { Button } from '../../components/ui/Button';
 import { Input } from '../../components/ui/Input';
 import { useAppContext } from '../../components/AppContext';
 import { EmptyState } from '../../components/shared/states';
+import { formatDateShort, formatFullDateTime } from '../../lib/date';
 
 const getIconForSubject = (subject: string) => {
   const s = subject.toLowerCase();
@@ -103,8 +104,7 @@ export function Notifications() {
               ) : (
                 <ul className="divide-y divide-brand-border">
                   {filteredMessages.map(msg => {
-                    const date = new Date(msg.timestamp);
-                    const dateStr = date.toLocaleDateString(undefined, { month: 'short', day: 'numeric' });
+                    const dateStr = formatDateShort(msg.timestamp);
                     const isSelected = selectedMessage?.id === msg.id;
 
                     return (
@@ -160,7 +160,7 @@ export function Notifications() {
                         </div>
                         <div className="flex">
                           <span className="w-12 inline-block text-on-surface-variant font-medium">Sent:</span>
-                          <span>{new Date(selectedMessage.timestamp).toLocaleString(undefined, { dateStyle: 'full', timeStyle: 'short' })}</span>
+                          <span>{formatFullDateTime(selectedMessage.timestamp)}</span>
                         </div>
                         <div className="flex">
                           <span className="w-12 inline-block text-on-surface-variant font-medium">To:</span>

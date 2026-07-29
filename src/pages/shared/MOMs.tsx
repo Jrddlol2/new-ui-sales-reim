@@ -4,6 +4,7 @@ import { Card, CardHeader } from '../../components/ui/Card';
 import { Input } from '../../components/ui/Input';
 import { useAppContext } from '../../components/AppContext';
 import { Pagination } from '../../components/ui/Pagination';
+import { formatDate } from '../../lib/date';
 
 export function MOMs() {
   const navigate = useNavigate();
@@ -96,7 +97,7 @@ export function MOMs() {
                     </td>
                     <td className="px-6 py-5 text-on-surface-variant text-sm">{mom.companyName || '—'}</td>
                     <td className="px-6 py-5 font-mono-data text-on-surface-variant text-sm">
-                      {mom.meetingDate ? new Date(mom.meetingDate).toLocaleDateString() : '—'}
+                      {mom.meetingDate ? formatDate(mom.meetingDate) : '—'}
                     </td>
                     <td className="px-6 py-5 text-on-surface-variant text-sm">{mom.preparedBy || '—'}</td>
                     <td className="px-6 py-5 text-sm">

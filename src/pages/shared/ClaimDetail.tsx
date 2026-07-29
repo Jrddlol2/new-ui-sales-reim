@@ -11,6 +11,7 @@ import { useToast } from '../../components/shared/ToastContext';
 import { confirmReceipt, uploadUrl, resubmitClaimFlow, DraftLineItem } from '../../lib/api';
 import { UserRole, ClaimStatus, ExpenseLineItem } from '../../types';
 import { formatMoney } from '../../lib/money';
+import { formatDateTime } from '../../lib/date';
 
 export function ClaimDetail() {
   const { addToast } = useToast();
@@ -305,7 +306,7 @@ export function ClaimDetail() {
                       </div>
                       <div className="flex flex-col">
                         <p className="font-label-md text-on-surface">{user?.name || 'System User'} <span className="font-normal text-on-surface-variant">• {h.newStatus}</span></p>
-                        <p className="font-body-sm text-outline">{new Date(h.timestamp).toLocaleString()}</p>
+                        <p className="font-body-sm text-outline">{formatDateTime(h.timestamp)}</p>
                         {h.comment && (
                           <div className="mt-2 p-3 bg-surface-container-low rounded-lg border border-outline-variant/30">
                             <p className="font-body-sm text-on-surface-variant italic">"{h.comment}"</p>

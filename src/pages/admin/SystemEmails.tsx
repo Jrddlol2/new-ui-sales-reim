@@ -5,6 +5,7 @@ import { Input } from '../../components/ui/Input';
 import { Button } from '../../components/ui/Button';
 import { useAppContext } from '../../components/AppContext';
 import { SystemEmail } from '../../types';
+import { formatDateTime } from '../../lib/date';
 
 export function SystemEmails() {
   const { emails, markEmailsRead, users } = useAppContext();
@@ -81,7 +82,7 @@ export function SystemEmails() {
                     <td className="px-4 py-4 text-center">
                       <div className={`w-2 h-2 rounded-full mx-auto ${!e.read ? 'bg-primary animate-pulse' : 'bg-transparent'}`} />
                     </td>
-                    <td className="px-4 py-4 font-mono-data text-outline text-xs whitespace-nowrap">{new Date(e.timestamp).toLocaleString()}</td>
+                    <td className="px-4 py-4 font-mono-data text-outline text-xs whitespace-nowrap">{formatDateTime(e.timestamp)}</td>
                     <td className="px-4 py-4 text-on-surface text-xs">
                       <p className="font-bold">{recipient?.name || e.to || e.recipientId}</p>
                       <p className="text-outline text-[11px]">{recipient?.email || e.to}</p>
@@ -110,7 +111,7 @@ export function SystemEmails() {
                   <span className="material-symbols-outlined text-primary text-[28px]">mail</span>
                   <div>
                     <h3 className="font-headline-sm text-on-surface">System Email Inspector</h3>
-                    <p className="text-xs text-outline">Logged on {new Date(selected.timestamp).toLocaleString()}</p>
+                    <p className="text-xs text-outline">Logged on {formatDateTime(selected.timestamp)}</p>
                   </div>
                 </div>
                 <button onClick={() => setSelected(null)} className="text-outline hover:text-on-surface">

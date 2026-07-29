@@ -11,6 +11,7 @@ import {
 import { fromServerSupport } from '../../lib/api';
 import { SupportRequest, SupportRequestStatus, UserRole } from '../../types';
 import { formatMoney } from '../../lib/money';
+import { formatDate, formatDateTime } from '../../lib/date';
 
 export function Support() {
   const { currentUser, supportRequests, refresh, claims } = useAppContext();
@@ -152,7 +153,7 @@ export function Support() {
                           {ticket.status}
                         </span>
                         <span className="text-[11px] text-outline font-mono-data">
-                          {new Date(ticket.createdAt).toLocaleDateString()}
+                          {formatDate(ticket.createdAt)}
                         </span>
                       </div>
                       <p className="font-bold text-on-surface text-sm truncate">{ticket.subject}</p>
@@ -220,7 +221,7 @@ export function Support() {
                           <p>{msg.message}</p>
                         </div>
                         <span className="text-[10px] text-outline mt-1 px-1 font-mono-data">
-                          {new Date(msg.timestamp).toLocaleString()}
+                          {formatDateTime(msg.timestamp)}
                         </span>
                       </div>
                     );

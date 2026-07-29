@@ -94,7 +94,7 @@ export function ClaimsList() {
                   <span className="material-symbols-outlined text-primary text-[28px]">key</span>
                   <div>
                     <p className="font-label-md text-on-surface">
-                      {readyForClaim.length} payout{readyForClaim.length === 1 ? '' : 's'} ready — ${readyForClaimTotal.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })} waiting for you
+                      {readyForClaim.length} payout{readyForClaim.length === 1 ? '' : 's'} ready — {formatMoney(readyForClaimTotal)} waiting for you
                     </p>
                     <p className="text-body-sm text-outline">Enter your release code to confirm receipt.</p>
                   </div>

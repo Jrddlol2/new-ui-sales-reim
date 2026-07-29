@@ -2,6 +2,7 @@ import { useState, useRef, useEffect } from 'react';
 import { useAppContext } from '../AppContext';
 import { useNavigate } from 'react-router-dom';
 import { logout } from '../../lib/api';
+import { formatDateTime } from '../../lib/date';
 
 interface TopbarProps {
   onMenuClick: () => void;
@@ -114,7 +115,7 @@ export function Topbar({ onMenuClick, isCollapsed = false }: TopbarProps) {
                     userNotifications.map(notif => (
                       <div key={notif.id} className={`p-3 text-sm rounded cursor-pointer ${notif.read ? 'bg-transparent hover:bg-surface-container' : 'bg-primary-container/20 font-medium'}`} onClick={() => { if (!notif.read) markEmailsRead([notif.id]); }}>
                         <p className="text-on-surface">{notif.subject || notif.body}</p>
-                        <p className="text-xs text-on-surface-variant mt-1">{new Date(notif.timestamp).toLocaleString()}</p>
+                        <p className="text-xs text-on-surface-variant mt-1">{formatDateTime(notif.timestamp)}</p>
                       </div>
                     ))
                   )}
